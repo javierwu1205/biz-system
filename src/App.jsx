@@ -62,15 +62,19 @@ const MEMBER_PASSWORDS = Object.fromEntries(
 const MEMBERS = Object.keys(MEMBER_PASSWORDS);
 const ALL_MEMBERS = ["Javier", ...MEMBERS]; // 包含管理员 Javier
 const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD"];
-const REGIONS = ["北美", "欧洲", "东南亚", "日韩", "中东", "澳洲", "其他"];
+const REGIONS = ["北美", "南美", "欧洲", "东南亚", "日韩", "中东", "南亚", "非洲", "中亚/东欧", "澳洲", "其他"];
 const COUNTRIES_BY_REGION = {
-  "北美": ["美国", "加拿大", "墨西哥"],
-  "欧洲": ["英国", "德国", "法国", "西班牙", "意大利", "荷兰", "波兰", "瑞典", "其他欧洲"],
-  "东南亚": ["越南", "泰国", "印尼", "马来西亚", "菲律宾", "新加坡", "缅甸", "柬埔寨", "其他东南亚"],
-  "日韩": ["日本", "韩国"],
-  "中东": ["阿联酋", "沙特阿拉伯", "土耳其", "以色列", "卡塔尔", "科威特", "其他中东"],
-  "澳洲": ["澳大利亚", "新西兰"],
-  "其他": ["印度", "巴西", "阿根廷", "南非", "俄罗斯", "其他"],
+  "北美": ["美国", "加拿大", "墨西哥", "古巴", "多米尼加", "牙买加", "海地", "巴拿马", "哥斯达黎加", "危地马拉", "洪都拉斯", "萨尔瓦多", "尼加拉瓜", "伯利兹", "波多黎各", "其他北美"],
+  "南美": ["巴西", "阿根廷", "智利", "哥伦比亚", "秘鲁", "委内瑞拉", "厄瓜多尔", "乌拉圭", "玻利维亚", "巴拉圭", "圭亚那", "苏里南", "特立尼达和多巴哥", "其他南美"],
+  "欧洲": ["英国", "德国", "法国", "西班牙", "意大利", "荷兰", "比利时", "葡萄牙", "瑞士", "奥地利", "瑞典", "挪威", "丹麦", "芬兰", "冰岛", "波兰", "捷克", "斯洛伐克", "匈牙利", "罗马尼亚", "保加利亚", "克罗地亚", "塞尔维亚", "希腊", "爱尔兰", "卢森堡", "立陶宛", "拉脱维亚", "爱沙尼亚", "斯洛文尼亚", "北马其顿", "阿尔巴尼亚", "其他欧洲"],
+  "东南亚": ["越南", "泰国", "印度尼西亚", "马来西亚", "菲律宾", "新加坡", "缅甸", "柬埔寨", "老挝", "文莱", "东帝汶", "其他东南亚"],
+  "日韩": ["日本", "韩国", "台湾", "香港", "澳门"],
+  "中东": ["阿联酋", "沙特阿拉伯", "土耳其", "以色列", "卡塔尔", "科威特", "巴林", "阿曼", "约旦", "伊拉克", "伊朗", "黎巴嫩", "叙利亚", "也门", "巴勒斯坦", "其他中东"],
+  "南亚": ["印度", "巴基斯坦", "孟加拉国", "斯里兰卡", "尼泊尔", "不丹", "马尔代夫", "其他南亚"],
+  "非洲": ["南非", "尼日利亚", "肯尼亚", "埃塞俄比亚", "加纳", "坦桑尼亚", "乌干达", "卢旺达", "摩洛哥", "突尼斯", "阿尔及利亚", "利比亚", "埃及", "安哥拉", "莫桑比克", "津巴布韦", "赞比亚", "象牙海岸", "喀麦隆", "塞内加尔", "其他非洲"],
+  "中亚/东欧": ["俄罗斯", "乌克兰", "哈萨克斯坦", "乌兹别克斯坦", "土库曼斯坦", "吉尔吉斯斯坦", "塔吉克斯坦", "格鲁吉亚", "亚美尼亚", "阿塞拜疆", "白俄罗斯", "摩尔多瓦", "其他中亚/东欧"],
+  "澳洲": ["澳大利亚", "新西兰", "巴布亚新几内亚", "斐济", "所罗门群岛", "瓦努阿图", "萨摩亚", "其他大洋洲"],
+  "其他": ["中国大陆", "蒙古", "朝鲜", "其他国家"],
 };
 const STATUS_COLORS = {
   "待确认": "#f59e0b", "进行中": "#3b82f6", "已完成": "#10b981", "已取消": "#ef4444",
@@ -442,7 +446,8 @@ function Clients({ data, setData, user }) {
   const [modal, setModal] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
   const [form, setForm] = useState({});
-  const empty = { 公司名称: "", 联系人: "", 邮箱: "", 地区: "北美", 状态: "潜在", 负责人: isAdmin ? MEMBERS[0] : user.name, 最近联系: new Date().toISOString().slice(0, 10), 备注: "", _owner: user.name };
+  const defaultOwner = user.role === "admin" ? "Javier" : user.name;
+  const empty = { 公司名称: "", 联系人: "", 邮箱: "", 地区: "北美", 国家: "美国", 状态: "潜在", 负责人: defaultOwner, 最近联系: new Date().toISOString().slice(0, 10), 备注: "", _owner: user.name };
   const visible = isAdmin ? data : data.filter(d => d._owner === user.name || d.负责人 === user.name);
   function openEdit(i) { const ri = data.indexOf(visible[i]); setForm({ ...data[ri] }); setEditIdx(ri); setModal(true); }
   async function save() {
@@ -457,8 +462,9 @@ function Clients({ data, setData, user }) {
     if (confirm("确认删除？")) await setData(null, "delete", data[ri]);
   }
   const fv = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const headers = ["公司名称", "联系人", "邮箱", "地区", "状态", "负责人", "最近联系"];
+  const headers = ["公司名称", "联系人", "邮箱", "地区", "国家", "状态", "负责人", "最近联系"];
   const rows = visible.map(d => ({ ...d, _canEdit: d._owner === user.name }));
+  const countries = COUNTRIES_BY_REGION[form.地区] || ["其他国家"];
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -467,14 +473,14 @@ function Clients({ data, setData, user }) {
       </div>
       <DataTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} isAdmin={isAdmin} />
       {modal && <Modal title={editIdx !== null ? "编辑客户" : "新增客户"} onClose={() => setModal(false)}>
-        <Field label="公司名称"><input style={IS} value={form.公司名称} onChange={e => fv("公司名称", e.target.value)} /></Field>
+        <Field label="公司名称"><input style={IS} value={form.公司名称} onChange={e => fv("公司名称", e.target.value)} placeholder="输入公司名称" /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="联系人"><input style={IS} value={form.联系人} onChange={e => fv("联系人", e.target.value)} /></Field>
           <Field label="邮箱"><input style={IS} type="email" value={form.邮箱} onChange={e => fv("邮箱", e.target.value)} /></Field>
-          <Field label="地区"><select style={SS} value={form.地区} onChange={e => fv("地区", e.target.value)}>{REGIONS.map(r => <option key={r}>{r}</option>)}</select></Field>
+          <Field label="地区"><select style={SS} value={form.地区} onChange={e => { fv("地区", e.target.value); fv("国家", (COUNTRIES_BY_REGION[e.target.value] || ["其他国家"])[0]); }}>{REGIONS.map(r => <option key={r}>{r}</option>)}</select></Field>
+          <Field label="国家"><select style={SS} value={form.国家} onChange={e => fv("国家", e.target.value)}>{countries.map(c => <option key={c}>{c}</option>)}</select></Field>
           <Field label="状态"><select style={SS} value={form.状态} onChange={e => fv("状态", e.target.value)}>{["潜在","活跃","沉睡","流失"].map(s => <option key={s}>{s}</option>)}</select></Field>
-          {isAdmin ? <Field label="负责人"><select style={SS} value={form.负责人} onChange={e => fv("负责人", e.target.value)}>{MEMBERS.map(m => <option key={m}>{m}</option>)}</select></Field>
-            : <Field label="负责人"><input style={{ ...IS, opacity: 0.6 }} value={user.name} disabled /></Field>}
+          <Field label="负责人"><select style={SS} value={form.负责人} onChange={e => fv("负责人", e.target.value)}>{ALL_MEMBERS.map(m => <option key={m}>{m}</option>)}</select></Field>
           <Field label="最近联系"><input style={IS} type="date" value={form.最近联系} onChange={e => fv("最近联系", e.target.value)} /></Field>
         </div>
         <Field label="备注"><textarea style={{ ...IS, resize: "vertical", minHeight: 70 }} value={form.备注} onChange={e => fv("备注", e.target.value)} /></Field>
