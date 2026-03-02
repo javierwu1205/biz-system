@@ -146,11 +146,33 @@ function exportPDF(data, filename, cols, title) {
   w.document.close();
 }
 
+// ─── STYLED DATE INPUT ────────────────────────────────────────────────────────
+function DateInput({ value, onChange, placeholder }) {
+  return (
+    <div style={{ position:"relative", display:"inline-flex", alignItems:"center" }}>
+      <span style={{ position:"absolute", left:10, fontSize:14, pointerEvents:"none", zIndex:1 }}>📅</span>
+      <input
+        type="date"
+        value={value||""}
+        onChange={onChange}
+        style={{
+          ...IS, width:"auto", minWidth:150, paddingLeft:32, paddingRight:10,
+          background:"#1a1f2e", border:"1px solid #4a3f6b", borderRadius:8,
+          color: value ? "#e2e8f0" : "#718096",
+          colorScheme:"dark",
+          cursor:"pointer",
+        }}
+      />
+      {!value && <span style={{ position:"absolute", left:34, color:"#718096", fontSize:13, pointerEvents:"none" }}>{placeholder}</span>}
+    </div>
+  );
+}
+
 // ─── FILTER BAR ───────────────────────────────────────────────────────────────
 function FilterBar({ isSuper, filters, setFilters, showPerson=true, showRegion=true, showDate=true, dateField="Date" }) {
   const countries = filters.region ? (COUNTRIES_BY_REGION[filters.region]||[]) : [];
   return (
-    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14, padding:"10px 14px", background:"#0a0e17", borderRadius:10, border:"1px solid #1e2433" }}>
+    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14, padding:"10px 14px", background:"#0a0e17", borderRadius:10, border:"1px solid #1e2433", alignItems:"center" }}>
       {isSuper && showPerson && (
         <select style={{ ...SS, width:"auto", minWidth:120 }} value={filters.person||""} onChange={e=>setFilters(p=>({...p, person:e.target.value}))}>
           <option value="">All Sales</option>
@@ -170,8 +192,9 @@ function FilterBar({ isSuper, filters, setFilters, showPerson=true, showRegion=t
         )}
       </>}
       {showDate && <>
-        <input style={{ ...IS, width:"auto", minWidth:130 }} type="date" value={filters.dateFrom||""} onChange={e=>setFilters(p=>({...p, dateFrom:e.target.value}))} />
-        <input style={{ ...IS, width:"auto", minWidth:130 }} type="date" value={filters.dateTo||""} onChange={e=>setFilters(p=>({...p, dateTo:e.target.value}))} />
+        <DateInput value={filters.dateFrom} onChange={e=>setFilters(p=>({...p, dateFrom:e.target.value}))} placeholder="From date" />
+        <span style={{ color:"#4a5568", fontSize:13 }}>→</span>
+        <DateInput value={filters.dateTo} onChange={e=>setFilters(p=>({...p, dateTo:e.target.value}))} placeholder="To date" />
       </>}
       {(filters.person||filters.region||filters.dateFrom||filters.dateTo) && (
         <Btn onClick={()=>setFilters({})} style={{ background:"#2d3748", color:"#a0aec0", padding:"8px 12px", fontSize:12 }}>✕ Clear</Btn>
@@ -360,13 +383,16 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
 }
 
 // ─── PIPELINE 报价 & 销售机会池 ───────────────────────────────────────────────
-function Pipeline({ data, user, onAdd, onUpdate, onDelete }) {
+function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [filters, setFilters] = useState({});
   const [form, setForm] = useState({});
   const [pdfViewer, setPdfViewer] = useState(null);
+  const [clientSearch, setClientSearch] = useState("");
+  const [showClientDrop, setShowClientDrop] = useState(false);
+  const [clientSummary, setClientSummary] = useState(null); // selected client name for summary modal
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
   const empty = { Date:new Date().toISOString().slice(0,10), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"", Notes:"", pdfName:"", pdfData:"", Sales:user.name, _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
@@ -375,16 +401,42 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete }) {
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
   const profit = (a,c) => { const p=Number(a||0)-Number(c||0); const pct=Number(a)>0?((p/Number(a))*100).toFixed(1):null; return {p, pct, pos:p>=0}; };
   const pr = profit(form.Amount, form.Cost);
-  const headers = isSuper ? ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","Sales","NextAction","PDF"] : ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","NextAction","PDF"];
+
+  // Client autocomplete from allClients
+  const clientSuggestions = clientSearch.trim().length > 0
+    ? allClients.filter(c => (c.Client||"").toLowerCase().includes(clientSearch.toLowerCase())).slice(0, 8)
+    : [];
+
+  function selectClient(c) {
+    fv("Client", c.Client);
+    fv("Region", c.Region || "North America");
+    fv("Country", c.Country || "United States");
+    setClientSearch(c.Client);
+    setShowClientDrop(false);
+  }
+
+  function openModal(item=null) {
+    if (item) { setForm({...item}); setClientSearch(item.Client||""); }
+    else { setForm(empty); setClientSearch(""); }
+    setEditItem(item); setModal(true);
+  }
+
+  const headers = isSuper
+    ? ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","Sales","NextAction","PDF"]
+    : ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","NextAction","PDF"];
   const rows = filtered.map(d => {
     const {p,pct,pos} = profit(d.Amount, d.Cost);
     return { ...d,
+      Client: <span style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <span>{d.Client}</span>
+        <button onClick={e=>{e.stopPropagation();setClientSummary(d.Client);}} style={{ background:"#667eea22", border:"1px solid #667eea44", color:"#a78bfa", padding:"2px 7px", borderRadius:6, cursor:"pointer", fontSize:10, whiteSpace:"nowrap" }}>📊</button>
+      </span>,
       Profit: Number(d.Amount) ? <span style={{ color:pos?"#10b981":"#ef4444", fontWeight:600 }}>{p.toLocaleString()}{pct?` (${pct}%)`:""}</span> : "-",
       PDF: d.pdfData ? <button onClick={e=>{e.stopPropagation();setPdfViewer({name:d.pdfName,url:d.pdfData});}} style={{ background:"#667eea22", border:"1px solid #667eea44", color:"#a78bfa", padding:"3px 8px", borderRadius:6, cursor:"pointer", fontSize:11 }}>📄 View</button> : <span style={{ color:"#4a5568", fontSize:11 }}>—</span>,
       _canEdit: isSuper||d._owner===user.name,
     };
   });
-  function openEdit(i) { const item = filtered[i]; setForm({...item}); setEditItem(item); setModal(true); }
+
   async function save() {
     if (!form.Client) return alert("Please enter client name");
     if (!form.Amount) return alert("Please enter amount");
@@ -400,8 +452,17 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete }) {
     if (file.size>10*1024*1024) return alert("PDF must be under 10MB");
     const r=new FileReader(); r.onload=ev=>{fv("pdfData",ev.target.result);fv("pdfName",file.name);}; r.readAsDataURL(file);
   }
+
+  // Client Summary Modal data
+  const summaryDeals = clientSummary ? data.filter(d => d.Client === clientSummary) : [];
+  const summaryOrders = summaryDeals.filter(d => d.Stage === "Order");
+  const summaryPending = summaryDeals.filter(d => d.Stage !== "Order");
+  const summaryTotalOrdered = summaryOrders.reduce((s,d)=>s+Number(d.Amount||0),0);
+  const summaryTotalPending = summaryPending.reduce((s,d)=>s+Number(d.Amount||0),0);
+
   return (
     <div>
+      {/* PDF Viewer */}
       {pdfViewer && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.9)", zIndex:2000, display:"flex", flexDirection:"column" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px", background:"#1a1f2e", borderBottom:"1px solid #2d3748" }}>
@@ -411,20 +472,122 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete }) {
           <iframe src={pdfViewer.url} style={{ flex:1, border:"none" }} title="PDF" />
         </div>
       )}
+
+      {/* Client Summary Modal */}
+      {clientSummary && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+          <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:720, maxHeight:"85vh", overflowY:"auto" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px 0" }}>
+              <h3 style={{ color:"#e2e8f0", fontSize:18, fontWeight:700, margin:0 }}>📊 {clientSummary} — Client Summary</h3>
+              <button onClick={()=>setClientSummary(null)} style={{ background:"none", border:"none", color:"#718096", fontSize:24, cursor:"pointer" }}>×</button>
+            </div>
+            <div style={{ padding:"16px 24px 24px" }}>
+              {/* Stats row */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
+                {[
+                  ["✅ Orders Won 已成交", summaryOrders.length, summaryTotalOrdered.toLocaleString(), "#10b981"],
+                  ["🔄 Pending Quotes 报价中", summaryPending.length, summaryTotalPending.toLocaleString(), "#f59e0b"],
+                  ["📦 Total Deals 总记录", summaryDeals.length, (summaryTotalOrdered+summaryTotalPending).toLocaleString(), "#a78bfa"],
+                ].map(([label,cnt,amt,color])=>(
+                  <div key={label} style={{ background:"#0f1420", borderRadius:12, padding:"14px 16px", textAlign:"center" }}>
+                    <div style={{ color:"#718096", fontSize:11, marginBottom:6 }}>{label}</div>
+                    <div style={{ color, fontSize:24, fontWeight:800 }}>{cnt}</div>
+                    <div style={{ color:"#a0aec0", fontSize:13, marginTop:2 }}>{amt}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Orders */}
+              {summaryOrders.length > 0 && <>
+                <div style={{ color:"#10b981", fontWeight:700, fontSize:13, marginBottom:8 }}>✅ Confirmed Orders 已成交订单</div>
+                <div style={{ overflowX:"auto", marginBottom:16 }}>
+                  <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                    <thead><tr>{["Date","Amount","Currency","Cost","Profit","Sales","Notes"].map(h=><th key={h} style={{ textAlign:"left", padding:"7px 10px", color:"#718096", borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>)}</tr></thead>
+                    <tbody>{summaryOrders.sort((a,b)=>b.Date>a.Date?1:-1).map((d,i)=>{
+                      const {p,pct,pos}=profit(d.Amount,d.Cost);
+                      return <tr key={i} style={{ borderBottom:"1px solid #161b27" }}>
+                        <td style={{ padding:"7px 10px", color:"#cbd5e0" }}>{d.Date}</td>
+                        <td style={{ padding:"7px 10px", color:"#10b981", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</td>
+                        <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Currency}</td>
+                        <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{Number(d.Cost||0).toLocaleString()}</td>
+                        <td style={{ padding:"7px 10px", color:pos?"#10b981":"#ef4444", fontWeight:600 }}>{p.toLocaleString()}{pct?` (${pct}%)`:""}</td>
+                        <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Sales}</td>
+                        <td style={{ padding:"7px 10px", color:"#718096", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.Notes}</td>
+                      </tr>;
+                    })}</tbody>
+                  </table>
+                </div>
+              </>}
+
+              {/* Pending */}
+              {summaryPending.length > 0 && <>
+                <div style={{ color:"#f59e0b", fontWeight:700, fontSize:13, marginBottom:8 }}>🔄 Pending / In Progress 报价未成交</div>
+                <div style={{ overflowX:"auto" }}>
+                  <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                    <thead><tr>{["Date","Amount","Currency","Stage","Probability","NextAction","Sales"].map(h=><th key={h} style={{ textAlign:"left", padding:"7px 10px", color:"#718096", borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>)}</tr></thead>
+                    <tbody>{summaryPending.sort((a,b)=>b.Date>a.Date?1:-1).map((d,i)=>(
+                      <tr key={i} style={{ borderBottom:"1px solid #161b27" }}>
+                        <td style={{ padding:"7px 10px", color:"#cbd5e0" }}>{d.Date}</td>
+                        <td style={{ padding:"7px 10px", color:"#f59e0b", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</td>
+                        <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Currency}</td>
+                        <td style={{ padding:"7px 10px" }}><Badge status={d.Stage} /></td>
+                        <td style={{ padding:"7px 10px", color:"#a78bfa" }}>{d.Probability}</td>
+                        <td style={{ padding:"7px 10px", color:"#718096", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.NextAction}</td>
+                        <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Sales}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </>}
+              {summaryDeals.length === 0 && <div style={{ textAlign:"center", padding:30, color:"#4a5568" }}>No records for this client</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} records &nbsp;
+        <div style={{ color:"#a0aec0", fontSize:14 }}>
+          <b style={{ color:"#e2e8f0" }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} records &nbsp;
           <span style={{ color:"#10b981", fontSize:13 }}>Total: {filtered.reduce((s,d)=>s+Number(d.Amount||0),0).toLocaleString()}</span>
+          <span style={{ color:"#718096", fontSize:12, marginLeft:8 }}>· Click 📊 on any client to see full history</span>
         </div>
         <div style={{ display:"flex", gap:8 }}>
           <Btn onClick={()=>exportCSV(filtered.map(d=>({...d,Profit:Number(d.Amount||0)-Number(d.Cost||0)})),"Pipeline_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
           <Btn onClick={()=>exportPDF(filtered.map(d=>({...d,Profit:Number(d.Amount||0)-Number(d.Cost||0)})),"Pipeline",exportCols,"Pipeline 报价 & 销售机会池 — Flowcolour")} style={{ background:"#1e2a3a", color:"#60a5fa", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
-          <button onClick={()=>{setForm(empty);setEditItem(null);setModal(true);}} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Add Deal</button>
+          <button onClick={()=>openModal()} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Add Deal</button>
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
-      <DataTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} />
+      <DataTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} />
+
       {modal && <Modal title={editItem?"Edit Deal":"New Deal 新增报价"} onClose={()=>setModal(false)}>
-        <Field label="Client 客户"><input style={IS} value={form.Client} onChange={e=>fv("Client",e.target.value)} placeholder="Client name" /></Field>
+        {/* Client with autocomplete */}
+        <Field label="Client 客户">
+          <div style={{ position:"relative" }}>
+            <input style={IS} value={clientSearch}
+              onChange={e=>{ setClientSearch(e.target.value); fv("Client",e.target.value); setShowClientDrop(true); }}
+              onFocus={()=>setShowClientDrop(true)}
+              placeholder="Type to search clients from your list..." />
+            {showClientDrop && clientSuggestions.length > 0 && (
+              <div style={{ position:"absolute", top:"100%", left:0, right:0, background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:8, zIndex:200, maxHeight:200, overflowY:"auto", marginTop:2 }}>
+                {clientSuggestions.map((c,i)=>(
+                  <div key={i} onClick={()=>selectClient(c)}
+                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:"1px solid #161b27" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="#2d3748"}
+                    onMouseLeave={e=>e.currentTarget.style.background=""}>
+                    <div style={{ color:"#e2e8f0", fontWeight:600, fontSize:14 }}>🏢 {c.Client}</div>
+                    <div style={{ color:"#718096", fontSize:12, marginTop:2 }}>📍 {c.Region} · {c.Country} &nbsp;|&nbsp; 👤 {c.Sales}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {form.Client && form.Region && (
+            <div style={{ marginTop:6, fontSize:12, color:"#718096" }}>
+              📍 Auto-filled: <span style={{ color:"#a78bfa" }}>{form.Region} · {form.Country}</span>
+            </div>
+          )}
+        </Field>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Field label="Date 日期"><input style={IS} type="date" value={form.Date} onChange={e=>fv("Date",e.target.value)} /></Field>
           <Field label="Currency 货币"><select style={SS} value={form.Currency} onChange={e=>fv("Currency",e.target.value)}>{CURRENCIES.map(c=><option key={c}>{c}</option>)}</select></Field>
@@ -466,7 +629,53 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete }) {
   );
 }
 
-// ─── CLIENT OWNERSHIP SEARCH 客户归属查询 ─────────────────────────────────────
+// ─── SORTABLE TABLE ───────────────────────────────────────────────────────────
+function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort }) {
+  const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
+  const [sortDir, setSortDir] = useState("asc");
+  function toggleSort(h) {
+    if (sortCol === h) setSortDir(d => d==="asc"?"desc":"asc");
+    else { setSortCol(h); setSortDir("asc"); }
+  }
+  const sorted = [...rows].sort((a,b) => {
+    const va = String(a[sortCol]||"").toLowerCase();
+    const vb = String(b[sortCol]||"").toLowerCase();
+    return sortDir==="asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+  return (
+    <div style={{ overflowX:"auto" }}>
+      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+        <thead><tr>
+          {headers.map(h => (
+            <th key={h} onClick={()=>toggleSort(h)} style={{ textAlign:"left", padding:"10px 12px", color: sortCol===h?"#a78bfa":"#718096", fontWeight:600, fontSize:12, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap", cursor:"pointer", userSelect:"none" }}>
+              {h} {sortCol===h ? (sortDir==="asc"?"↑":"↓") : <span style={{ opacity:0.3 }}>↕</span>}
+            </th>
+          ))}
+          <th style={{ padding:"10px 12px", color:"#718096", fontSize:12, borderBottom:"1px solid #2d3748" }}>Actions</th>
+        </tr></thead>
+        <tbody>
+          {sorted.length === 0
+            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
+            : sorted.map((row, i) => (
+              <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
+                onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
+                onMouseLeave={e=>e.currentTarget.style.background=""}>
+                {headers.map(h => <td key={h} style={{ padding:"10px 12px", color:"#cbd5e0", whiteSpace:"nowrap", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {h==="Status" ? <Badge status={row[h]} /> : row[h]}
+                </td>)}
+                <td style={{ padding:"10px 12px", whiteSpace:"nowrap" }}>
+                  {(canEdit ? canEdit(row) : true)
+                    ? <><Btn onClick={()=>onEdit(rows.indexOf(row))} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 10px", fontSize:12, marginRight:6 }}>Edit</Btn>
+                       <Btn onClick={()=>onDelete(rows.indexOf(row))} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 10px", fontSize:12 }}>Delete</Btn></>
+                    : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
+                </td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 function ClientOwnerSearch({ allClients }) {
   const [query, setQuery] = useState("");
   const [searched, setSearched] = useState(false);
@@ -606,7 +815,8 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
-      <DataTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} />
+      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序</div>
+      <SortableTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Client" />
 
       {modal && <Modal title={editItem?"Edit Client":"New Client 新增客户"} onClose={()=>{setModal(false);setDupWarning(null);}}>
         <Field label="Client 公司名称">
@@ -856,78 +1066,308 @@ function ClientHealth({ pipeline, clients }) {
   );
 }
 
+// ─── SALES PERSON DETAIL 业务员详情 ──────────────────────────────────────────
+function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose }) {
+  const myPipeline = pipeline.filter(d => d.Sales===name || d._owner===name);
+  const myTracking = tracking.filter(d => d.Sales===name || d._owner===name);
+  const myClients  = clients.filter(d => d.Sales===name || d._owner===name);
+  const myReports  = reports.filter(d => d.Sales===name || d._owner===name);
+  const orders     = myPipeline.filter(d => d.Stage==="Order");
+  const pending    = myPipeline.filter(d => d.Stage!=="Order");
+  const totalRev   = orders.reduce((s,d)=>s+Number(d.Amount||0),0);
+  const totalCost  = orders.reduce((s,d)=>s+Number(d.Cost||0),0);
+  const totalProfit= totalRev - totalCost;
+  const profitPct  = totalRev>0 ? ((totalProfit/totalRev)*100).toFixed(1) : 0;
+  const forecast   = myPipeline.reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
+  const winRate    = myPipeline.length>0 ? ((orders.length/myPipeline.length)*100).toFixed(0) : 0;
+
+  // Revenue by region breakdown
+  const byRegion = {};
+  orders.forEach(d=>{ byRegion[d.Region||"Unknown"]=(byRegion[d.Region||"Unknown"]||0)+Number(d.Amount||0); });
+  const regionList = Object.entries(byRegion).sort((a,b)=>b[1]-a[1]);
+
+  // Revenue by product
+  const byProduct = {};
+  myTracking.forEach(d=>{ byProduct[d.Product||"Others"]=(byProduct[d.Product||"Others"]||0)+1; });
+  const productList = Object.entries(byProduct).sort((a,b)=>b[1]-a[1]);
+
+  // Monthly revenue (last 6 months)
+  const monthlyRev = {};
+  for(let i=5;i>=0;i--){
+    const d=new Date(); d.setMonth(d.getMonth()-i);
+    const key=d.toISOString().slice(0,7);
+    monthlyRev[key]=0;
+  }
+  orders.forEach(d=>{ const k=(d.Date||"").slice(0,7); if(monthlyRev[k]!==undefined) monthlyRev[k]+=Number(d.Amount||0); });
+  const monthKeys = Object.keys(monthlyRev);
+  const maxMonthRev = Math.max(...Object.values(monthlyRev),1);
+
+  // Source breakdown from tracking
+  const bySource = {};
+  myTracking.forEach(d=>{ bySource[d.Source||"Others"]=(bySource[d.Source||"Others"]||0)+1; });
+  const sourceList = Object.entries(bySource).sort((a,b)=>b[1]-a[1]);
+
+  const StatCard = ({label, value, sub, color="#e2e8f0"}) => (
+    <div style={{ background:"#0f1420", borderRadius:12, padding:"14px 18px", textAlign:"center" }}>
+      <div style={{ color:"#718096", fontSize:11, marginBottom:6 }}>{label}</div>
+      <div style={{ color, fontSize:22, fontWeight:800 }}>{value}</div>
+      {sub && <div style={{ color:"#4a5568", fontSize:11, marginTop:3 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1500, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:20, overflowY:"auto" }}>
+      <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:20, width:"100%", maxWidth:860, marginTop:20 }}>
+        {/* Header */}
+        <div style={{ background:"linear-gradient(135deg,#1e1535,#1a2540)", borderRadius:"20px 20px 0 0", padding:"24px 28px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:6 }}>
+              <div style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", borderRadius:"50%", width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>👤</div>
+              <div>
+                <div style={{ color:"#e2e8f0", fontSize:22, fontWeight:800 }}>{name}</div>
+                <div style={{ color:"#718096", fontSize:13 }}>Sales Performance Analysis 业绩分析</div>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"#2d3748", border:"none", color:"#a0aec0", padding:"8px 16px", borderRadius:10, cursor:"pointer", fontWeight:600 }}>✕ Close</button>
+        </div>
+
+        <div style={{ padding:"24px 28px" }}>
+          {/* KPI Row */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:22 }}>
+            <StatCard label="💰 Total Revenue" value={totalRev.toLocaleString()} sub="Closed orders" color="#10b981" />
+            <StatCard label="📦 Orders Won" value={orders.length} sub={`Win rate: ${winRate}%`} color="#10b981" />
+            <StatCard label="🔄 Active Pipeline" value={pending.length} sub={`Forecast: ${forecast.toLocaleString()}`} color="#3b82f6" />
+            <StatCard label="🎯 Leads Tracked" value={myTracking.length} sub={`${myClients.length} clients`} color="#f59e0b" />
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:22 }}>
+            <StatCard label="💵 Gross Profit" value={totalProfit.toLocaleString()} sub={`Margin: ${profitPct}%`} color={totalProfit>=0?"#10b981":"#ef4444"} />
+            <StatCard label="📊 Total Deals" value={myPipeline.length} sub="All stages" color="#a78bfa" />
+            <StatCard label="📝 Reports Filed" value={myReports.length} sub="Activity reports" color="#ec4899" />
+          </div>
+
+          {/* Monthly Revenue Chart */}
+          <div style={{ background:"#0f1420", borderRadius:14, padding:"18px 20px", marginBottom:18 }}>
+            <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:16 }}>📈 Monthly Revenue 月度收入（Last 6 months）</div>
+            <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:80 }}>
+              {monthKeys.map(k => {
+                const v = monthlyRev[k];
+                const h = Math.max((v/maxMonthRev*100),v>0?8:2);
+                return (
+                  <div key={k} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                    <div style={{ color:"#10b981", fontSize:10 }}>{v>0?v.toLocaleString():""}</div>
+                    <div style={{ width:"100%", height:h+"%", minHeight:4, background:v>0?"linear-gradient(180deg,#10b981,#667eea)":"#1e2433", borderRadius:"4px 4px 0 0", transition:"height 0.5s" }} />
+                    <div style={{ color:"#4a5568", fontSize:10, whiteSpace:"nowrap" }}>{k.slice(5)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:18 }}>
+            {/* Region Breakdown */}
+            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px" }}>
+              <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:12 }}>🌍 Revenue by Region 地区分布</div>
+              {regionList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No orders yet</div>
+                : regionList.map(([region,amt])=>{
+                  const pct = (amt/totalRev*100).toFixed(0);
+                  return (
+                    <div key={region} style={{ marginBottom:10 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                        <span style={{ color:"#cbd5e0", fontSize:12 }}>{region}</span>
+                        <span style={{ color:"#10b981", fontSize:12, fontWeight:600 }}>{amt.toLocaleString()} ({pct}%)</span>
+                      </div>
+                      <div style={{ background:"#1e2433", borderRadius:4, height:5 }}>
+                        <div style={{ height:"100%", width:pct+"%", background:"linear-gradient(90deg,#667eea,#10b981)", borderRadius:4 }} />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Source & Product */}
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", flex:1 }}>
+                <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:10 }}>📡 Lead Sources 来源分布</div>
+                {sourceList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No tracking data</div>
+                  : sourceList.map(([src,cnt])=>(
+                    <div key={src} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:"1px solid #1e2433" }}>
+                      <span style={{ color:"#cbd5e0", fontSize:12 }}>{src}</span>
+                      <span style={{ color:"#3b82f6", fontWeight:600, fontSize:12 }}>{cnt}</span>
+                    </div>
+                  ))}
+              </div>
+              <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", flex:1 }}>
+                <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:10 }}>🔧 Products Tracked 产品</div>
+                {productList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No tracking data</div>
+                  : productList.map(([prod,cnt])=>(
+                    <div key={prod} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:"1px solid #1e2433" }}>
+                      <span style={{ color:"#cbd5e0", fontSize:12 }}>{prod}</span>
+                      <span style={{ color:"#a78bfa", fontWeight:600, fontSize:12 }}>{cnt}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Active Pipeline */}
+          {pending.length > 0 && (
+            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", marginBottom:14 }}>
+              <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:12 }}>🔄 Active Pipeline 进行中的机会</div>
+              <div style={{ overflowX:"auto" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                  <thead><tr>{["Client","Amount","Stage","Probability","Next Action"].map(h=><th key={h} style={{ textAlign:"left", padding:"6px 10px", color:"#718096", borderBottom:"1px solid #2d3748" }}>{h}</th>)}</tr></thead>
+                  <tbody>{pending.sort((a,b)=>parseInt(b.Probability||0)-parseInt(a.Probability||0)).map((d,i)=>(
+                    <tr key={i} style={{ borderBottom:"1px solid #1e2433" }}>
+                      <td style={{ padding:"7px 10px", color:"#e2e8f0", fontWeight:600 }}>{d.Client}</td>
+                      <td style={{ padding:"7px 10px", color:"#f59e0b", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()} {d.Currency}</td>
+                      <td style={{ padding:"7px 10px" }}><Badge status={d.Stage} /></td>
+                      <td style={{ padding:"7px 10px", color:"#a78bfa" }}>{d.Probability}</td>
+                      <td style={{ padding:"7px 10px", color:"#718096", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.NextAction||"—"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Orders */}
+          {orders.length > 0 && (
+            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px" }}>
+              <div style={{ color:"#10b981", fontSize:13, fontWeight:600, marginBottom:12 }}>✅ Closed Orders 已成交订单</div>
+              <div style={{ overflowX:"auto" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                  <thead><tr>{["Date","Client","Country","Amount","Currency","Profit"].map(h=><th key={h} style={{ textAlign:"left", padding:"6px 10px", color:"#718096", borderBottom:"1px solid #2d3748" }}>{h}</th>)}</tr></thead>
+                  <tbody>{orders.sort((a,b)=>b.Date>a.Date?1:-1).map((d,i)=>{
+                    const p=Number(d.Amount||0)-Number(d.Cost||0);
+                    return <tr key={i} style={{ borderBottom:"1px solid #1e2433" }}>
+                      <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Date}</td>
+                      <td style={{ padding:"7px 10px", color:"#e2e8f0", fontWeight:600 }}>{d.Client}</td>
+                      <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Country}</td>
+                      <td style={{ padding:"7px 10px", color:"#10b981", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</td>
+                      <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Currency}</td>
+                      <td style={{ padding:"7px 10px", color:p>=0?"#10b981":"#ef4444", fontWeight:600 }}>{p.toLocaleString()}</td>
+                    </tr>;
+                  })}</tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── SALES DASHBOARD 总监主页 (admin only) ────────────────────────────────────
 function SalesDashboard({ pipeline, tracking, clients, reports }) {
   const [filters, setFilters] = useState({});
+  const [selectedSales, setSelectedSales] = useState(null);
   const filtered = applyFilters(pipeline, { ...filters }, "Date");
   const filteredTrack = applyFilters(tracking, { ...filters }, "Date");
   const totalRev = filtered.filter(d=>d.Stage==="Order").reduce((s,d)=>s+Number(d.Amount||0),0);
   const totalForecast = filtered.reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
-  const Card = ({ label, value, sub, color="#e2e8f0", icon }) => (
-    <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:14, padding:"18px 22px" }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-        <div>
-          <div style={{ color:"#718096", fontSize:12, marginBottom:6 }}>{label}</div>
-          <div style={{ color, fontSize:26, fontWeight:800 }}>{value}</div>
-          {sub && <div style={{ color:"#4a5568", fontSize:11, marginTop:4 }}>{sub}</div>}
-        </div>
-        {icon && <span style={{ fontSize:28, opacity:0.7 }}>{icon}</span>}
-      </div>
-    </div>
-  );
+
   const byPerson = SALES_MEMBERS.map(name => {
     const orders = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order");
-    const pipe = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage!=="Order");
-    const leads = filteredTrack.filter(d=>(d.Sales===name||d._owner===name));
-    const rev = orders.reduce((s,d)=>s+Number(d.Amount||0),0);
+    const pipe   = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage!=="Order");
+    const leads  = filteredTrack.filter(d=>(d.Sales===name||d._owner===name));
+    const rev    = orders.reduce((s,d)=>s+Number(d.Amount||0),0);
     const forecast = filtered.filter(d=>(d.Sales===name||d._owner===name)).reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
     return { name, orders:orders.length, pipe:pipe.length, leads:leads.length, rev, forecast };
   });
   const maxRev = Math.max(...byPerson.map(p=>p.rev),1);
+
+  // KPI cards — horizontal single row with nowrap label
+  const kpis = [
+    { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order").length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
+    { label:"Revenue 总收入",      value:totalRev.toLocaleString(),                   sub:"From orders",          color:"#10b981", icon:"💰" },
+    { label:"Pipeline 销售机会",   value:filtered.filter(d=>d.Stage!=="Order").length, sub:"Active",              color:"#3b82f6", icon:"🔄" },
+    { label:"Forecast 预计成交",   value:totalForecast.toLocaleString(),              sub:"Probability-weighted",  color:"#a78bfa", icon:"📈" },
+    { label:"New Leads 新客户",    value:filteredTrack.length,                        sub:"Contacts tracked",      color:"#f59e0b", icon:"🎯" },
+    { label:"Reports 汇报数",      value:reports.length,                              sub:"This period",           color:"#ec4899", icon:"📝" },
+  ];
+
   return (
     <div>
+      {selectedSales && (
+        <SalesPersonDetail
+          name={selectedSales}
+          pipeline={pipeline} tracking={tracking} clients={clients} reports={reports}
+          onClose={()=>setSelectedSales(null)}
+        />
+      )}
+
       <FilterBar isSuper={true} filters={filters} setFilters={setFilters} showPerson={false} />
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
-        <Card label="Orders Won 已成交" value={filtered.filter(d=>d.Stage==="Order").length} sub="Total closed deals" color="#10b981" icon="✅" />
-        <Card label="Total Revenue 总收入" value={totalRev.toLocaleString()} sub="From closed orders" color="#10b981" icon="💰" />
-        <Card label="Pipeline 销售机会" value={filtered.filter(d=>d.Stage!=="Order").length} sub="Active deals" color="#3b82f6" icon="🔄" />
-        <Card label="Forecast 预计成交" value={totalForecast.toLocaleString()} sub="Probability-weighted" color="#a78bfa" icon="📈" />
-        <Card label="New Leads 新客户" value={filteredTrack.length} sub="Contacts tracked" color="#f59e0b" icon="🎯" />
-        <Card label="Reports 汇报数" value={reports.length} sub="This period" color="#ec4899" icon="📝" />
+
+      {/* KPI Cards — 6 columns, single row, no text wrap */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:24 }}>
+        {kpis.map(({label,value,sub,color,icon}) => (
+          <div key={label} style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:14, padding:"16px 18px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+              <div style={{ color:"#718096", fontSize:11, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"80%" }}>{label}</div>
+              <span style={{ fontSize:18, flexShrink:0 }}>{icon}</span>
+            </div>
+            <div style={{ color, fontSize:22, fontWeight:800, whiteSpace:"nowrap" }}>{value}</div>
+            <div style={{ color:"#4a5568", fontSize:11, marginTop:4 }}>{sub}</div>
+          </div>
+        ))}
       </div>
-      <h4 style={{ color:"#e2e8f0", margin:"0 0 14px", fontSize:15 }}>👥 Sales Performance 业务业绩排行</h4>
-      <div style={{ display:"grid", gap:12, marginBottom:24 }}>
+
+      {/* Sales Performance — clickable rows */}
+      <h4 style={{ color:"#e2e8f0", margin:"0 0 10px", fontSize:15 }}>
+        👥 Sales Performance 业务业绩排行
+        <span style={{ color:"#4a5568", fontSize:12, fontWeight:400, marginLeft:10 }}>Click a row to view full analysis 点击查看详细分析</span>
+      </h4>
+      <div style={{ display:"grid", gap:10, marginBottom:24 }}>
         {byPerson.sort((a,b)=>b.rev-a.rev).map((p,i) => (
-          <div key={p.name} style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:12, padding:"14px 18px" }}>
+          <div key={p.name} onClick={()=>setSelectedSales(p.name)}
+            style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:12, padding:"14px 20px", cursor:"pointer", transition:"all 0.15s" }}
+            onMouseEnter={e=>{e.currentTarget.style.background="#1e2840";e.currentTarget.style.borderColor="#667eea55";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="#1a1f2e";e.currentTarget.style.borderColor="#2d3748";}}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <span style={{ color:["#f59e0b","#9ca3af","#cd7f32"][i]||"#4a5568", fontWeight:800, fontSize:18, width:24 }}>{i+1}</span>
-                <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>{p.name}</span>
+                <span style={{ color:["#f59e0b","#9ca3af","#cd7f32"][i]||"#4a5568", fontWeight:800, fontSize:20, width:28, textAlign:"center" }}>{i+1}</span>
+                <div>
+                  <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>{p.name}</span>
+                  <span style={{ color:"#667eea", fontSize:11, marginLeft:10 }}>→ Click for details</span>
+                </div>
               </div>
-              <div style={{ display:"flex", gap:16 }}>
-                <div style={{ textAlign:"center" }}><div style={{ color:"#10b981", fontSize:16, fontWeight:700 }}>{p.rev.toLocaleString()}</div><div style={{ color:"#4a5568", fontSize:10 }}>Revenue</div></div>
-                <div style={{ textAlign:"center" }}><div style={{ color:"#3b82f6", fontSize:16, fontWeight:700 }}>{p.orders}</div><div style={{ color:"#4a5568", fontSize:10 }}>Orders</div></div>
-                <div style={{ textAlign:"center" }}><div style={{ color:"#a78bfa", fontSize:16, fontWeight:700 }}>{p.pipe}</div><div style={{ color:"#4a5568", fontSize:10 }}>Pipeline</div></div>
-                <div style={{ textAlign:"center" }}><div style={{ color:"#f59e0b", fontSize:16, fontWeight:700 }}>{p.leads}</div><div style={{ color:"#4a5568", fontSize:10 }}>Leads</div></div>
+              <div style={{ display:"flex", gap:20 }}>
+                {[
+                  [p.rev.toLocaleString(),"Revenue","#10b981"],
+                  [p.orders,"Orders","#3b82f6"],
+                  [p.pipe,"Pipeline","#a78bfa"],
+                  [p.leads,"Leads","#f59e0b"],
+                  [p.forecast.toLocaleString(),"Forecast","#ec4899"],
+                ].map(([val,lbl,c])=>(
+                  <div key={lbl} style={{ textAlign:"center", minWidth:50 }}>
+                    <div style={{ color:c, fontSize:15, fontWeight:700 }}>{val}</div>
+                    <div style={{ color:"#4a5568", fontSize:10 }}>{lbl}</div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div style={{ background:"#0f1420", borderRadius:6, height:6 }}>
+            <div style={{ background:"#0f1420", borderRadius:6, height:5 }}>
               <div style={{ height:"100%", width:Math.min((p.rev/maxRev*100),100)+"%", background:"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.6s" }} />
             </div>
           </div>
         ))}
       </div>
-      <h4 style={{ color:"#e2e8f0", margin:"0 0 14px", fontSize:15 }}>📊 Pipeline by Stage 阶段分布</h4>
-      <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+
+      {/* Pipeline Stage Distribution */}
+      <h4 style={{ color:"#e2e8f0", margin:"0 0 10px", fontSize:15 }}>📊 Pipeline by Stage 阶段分布</h4>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
         {["Quotation","Negotiation","Order"].map(stage => {
           const cnt = filtered.filter(d=>d.Stage===stage).length;
           const amt = filtered.filter(d=>d.Stage===stage).reduce((s,d)=>s+Number(d.Amount||0),0);
           const c = STATUS_COLORS[stage]||"#718096";
           return (
-            <div key={stage} style={{ flex:"1 1 150px", background:"#1a1f2e", border:`1px solid ${c}44`, borderRadius:12, padding:"16px 20px", textAlign:"center" }}>
+            <div key={stage} style={{ background:"#1a1f2e", border:`1px solid ${c}44`, borderRadius:12, padding:"18px 22px", textAlign:"center" }}>
               <Badge status={stage} />
-              <div style={{ color:"#e2e8f0", fontSize:28, fontWeight:800, margin:"10px 0 4px" }}>{cnt}</div>
-              <div style={{ color:c, fontSize:13, fontWeight:600 }}>{amt.toLocaleString()}</div>
+              <div style={{ color:"#e2e8f0", fontSize:32, fontWeight:800, margin:"10px 0 4px" }}>{cnt}</div>
+              <div style={{ color:c, fontSize:14, fontWeight:600 }}>{amt.toLocaleString()}</div>
+              <div style={{ color:"#4a5568", fontSize:11, marginTop:4 }}>total amount</div>
             </div>
           );
         })}
@@ -1021,7 +1461,7 @@ export default function App() {
       {/* CONTENT */}
       <div style={{ maxWidth:1400, margin:"0 auto", padding:"24px 20px" }}>
         {curTab==="dashboard" && isSuper && <SalesDashboard pipeline={pipeline} tracking={tracking} clients={clients} reports={reports} />}
-        {curTab==="pipeline"  && <Pipeline  data={pipeline} user={user} onAdd={d=>op("pipeline","add",d)} onUpdate={(id,d)=>op("pipeline","update",{...d,_id:id})} onDelete={id=>fireDelete("pipeline",id)} />}
+        {curTab==="pipeline"  && <Pipeline  data={pipeline} user={user} onAdd={d=>op("pipeline","add",d)} onUpdate={(id,d)=>op("pipeline","update",{...d,_id:id})} onDelete={id=>fireDelete("pipeline",id)} allClients={clients} />}
         {curTab==="tracking"  && <Tracking  data={tracking} user={user} onAdd={d=>op("tracking","add",d)} onUpdate={(id,d)=>op("tracking","update",{...d,_id:id})} onDelete={id=>fireDelete("tracking",id)} />}
         {curTab==="clients"   && <ClientMgmt data={clients} user={user} onAdd={d=>op("clients2","add",d)} onUpdate={(id,d)=>op("clients2","update",{...d,_id:id})} onDelete={id=>fireDelete("clients2",id)} />}
         {curTab==="reports"   && <Reports   data={reports} user={user} onAdd={d=>op("reports","add",d)} onUpdate={(id,d)=>op("reports","update",{...d,_id:id})} onDelete={id=>fireDelete("reports",id)} />}
