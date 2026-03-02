@@ -564,11 +564,11 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
   const [form, setForm] = useState({});
   const [dupWarning, setDupWarning] = useState(null); // duplicate client warning
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
-  const empty={ Client:"", Contact:"", Email:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user.name, LastContact:new Date().toISOString().slice(0,10), Notes:"", _owner:user.name };
+  const empty={ Client:"", Contact:"", Email:"", Phone:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user.name, LastContact:new Date().toISOString().slice(0,10), Notes:"", _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
   const filtered = applyFilters(visible, filters, "LastContact");
-  const exportCols = ["Client","Contact","Email","Region","Country","Status","Sales","LastContact","Notes"];
-  const headers = ["Client","Contact","Email","Region","Country","Status","Sales","LastContact"];
+  const exportCols = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Notes"];
+  const headers = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact"];
   const rows = filtered.map(d=>({...d, _canEdit:isSuper||d._owner===user.name}));
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
 
@@ -635,6 +635,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Field label="Contact 联系人"><input style={IS} value={form.Contact||""} onChange={e=>fv("Contact",e.target.value)} /></Field>
+          <Field label="Phone 电话"><input style={IS} value={form.Phone||""} onChange={e=>fv("Phone",e.target.value)} placeholder="e.g. +1-555-0123" /></Field>
           <Field label="Email 邮箱"><input style={IS} type="email" value={form.Email||""} onChange={e=>fv("Email",e.target.value)} /></Field>
           <Field label="Region 地区"><select style={SS} value={form.Region} onChange={e=>{fv("Region",e.target.value);fv("Country",(COUNTRIES_BY_REGION[e.target.value]||["Others"])[0]);}}>{REGIONS_EN.map(r=><option key={r}>{r}</option>)}</select></Field>
           <Field label="Country 国家"><select style={SS} value={form.Country} onChange={e=>fv("Country",e.target.value)}>{countries.map(c=><option key={c}>{c}</option>)}</select></Field>
