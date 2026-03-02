@@ -466,6 +466,95 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete }) {
   );
 }
 
+// ─── CLIENT OWNERSHIP SEARCH 客户归属查询 ─────────────────────────────────────
+function ClientOwnerSearch({ allClients }) {
+  const [query, setQuery] = useState("");
+  const [searched, setSearched] = useState(false);
+  const results = searched && query.trim()
+    ? allClients.filter(d => (d.Client||"").toLowerCase().includes(query.trim().toLowerCase()))
+    : [];
+  function doSearch() { if (query.trim()) setSearched(true); }
+  return (
+    <div style={{ background:"#0a0e17", border:"1px solid #2d3748", borderRadius:14, padding:"18px 20px", marginBottom:20 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+        <span style={{ fontSize:18 }}>🔍</span>
+        <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>Client Ownership Check 客户归属查询</span>
+        <span style={{ color:"#4a5568", fontSize:12, marginLeft:4 }}>— 报价前先查是否已有业务负责</span>
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <input
+          style={{ ...IS, flex:1 }}
+          placeholder="Search client name keywords... (e.g. Luminor)"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setSearched(false); }}
+          onKeyDown={e => e.key === "Enter" && doSearch()}
+        />
+        <Btn onClick={doSearch} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"10px 20px", whiteSpace:"nowrap" }}>
+          Search 搜索
+        </Btn>
+        {searched && <Btn onClick={()=>{ setQuery(""); setSearched(false); }} style={{ background:"#2d3748", color:"#a0aec0", padding:"10px 14px" }}>✕</Btn>}
+      </div>
+
+      {/* Results */}
+      {searched && query.trim() && (
+        <div style={{ marginTop:14 }}>
+          {results.length === 0 ? (
+            <div style={{ background:"#0d2618", border:"1px solid #10b98133", borderRadius:10, padding:"14px 18px", display:"flex", alignItems:"center", gap:12 }}>
+              <span style={{ fontSize:24 }}>🟢</span>
+              <div>
+                <div style={{ color:"#10b981", fontWeight:700, fontSize:15 }}>No match found — Client available!</div>
+                <div style={{ color:"#4a5568", fontSize:13, marginTop:2 }}>未找到「{query}」相关客户，可以直接报价</div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ background:"#2d1515", border:"1px solid #ef444433", borderRadius:10, padding:"12px 16px", marginBottom:10, display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:22 }}>🔴</span>
+                <div>
+                  <div style={{ color:"#fc8181", fontWeight:700, fontSize:14 }}>⚠️ Client already assigned! 此客户已有业务负责</div>
+                  <div style={{ color:"#fc818188", fontSize:12, marginTop:2 }}>Found {results.length} match(es) for「{query}」— Please coordinate before quoting</div>
+                </div>
+              </div>
+              {results.map((r, i) => (
+                <div key={i} style={{ background:"#1a1f2e", border:"1px solid #ef444422", borderRadius:10, padding:"14px 18px", marginBottom:8, display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:12 }}>
+                  <div>
+                    <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>🏢 Client 客户</div>
+                    <div style={{ color:"#e2e8f0", fontWeight:700, fontSize:14 }}>{r.Client}</div>
+                  </div>
+                  <div>
+                    <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>👤 Sales Owner 负责业务</div>
+                    <div style={{ color:"#a78bfa", fontWeight:700, fontSize:15 }}>🔒 {r.Sales}</div>
+                  </div>
+                  <div>
+                    <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>📍 Region 地区</div>
+                    <div style={{ color:"#cbd5e0", fontSize:13 }}>{r.Region}</div>
+                  </div>
+                  <div>
+                    <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>🌐 Country 国家</div>
+                    <div style={{ color:"#cbd5e0", fontSize:13 }}>{r.Country}</div>
+                  </div>
+                  <div>
+                    <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>📊 Status 状态</div>
+                    <div style={{ fontSize:13 }}><Badge status={r.Status} /></div>
+                  </div>
+                  {r.Contact && <div>
+                    <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>📞 Contact 联系人</div>
+                    <div style={{ color:"#cbd5e0", fontSize:13 }}>{r.Contact}</div>
+                  </div>}
+                </div>
+              ))}
+              <div style={{ background:"#1a1a2e", border:"1px solid #667eea33", borderRadius:10, padding:"12px 16px", color:"#a78bfa", fontSize:13 }}>
+                💡 <b>Tip:</b> Please contact <b>{results[0]?.Sales}</b> to coordinate before proceeding with this client.
+                &nbsp; 请联系 <b>{results[0]?.Sales}</b> 协调后再报价。
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── CLIENT MANAGEMENT 客户管理 ────────────────────────────────────────────────
 function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
   const isSuper = user.role === "admin";
@@ -473,6 +562,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
   const [editItem, setEditItem] = useState(null);
   const [filters, setFilters] = useState({});
   const [form, setForm] = useState({});
+  const [dupWarning, setDupWarning] = useState(null); // duplicate client warning
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
   const empty={ Client:"", Contact:"", Email:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user.name, LastContact:new Date().toISOString().slice(0,10), Notes:"", _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
@@ -481,41 +571,83 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
   const headers = ["Client","Contact","Email","Region","Country","Status","Sales","LastContact"];
   const rows = filtered.map(d=>({...d, _canEdit:isSuper||d._owner===user.name}));
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
-  function openEdit(i) { const item=filtered[i]; setForm({...item}); setEditItem(item); setModal(true); }
+
+  function checkDuplicate(name) {
+    if (!name.trim()) { setDupWarning(null); return; }
+    const found = data.filter(d => (d.Client||"").toLowerCase().includes(name.trim().toLowerCase()) && (!editItem || d._id !== editItem._id));
+    setDupWarning(found.length > 0 ? found : null);
+  }
+
+  function openEdit(i) { const item=filtered[i]; setForm({...item}); setEditItem(item); setDupWarning(null); setModal(true); }
+
   async function save() {
     if (!form.Client) return alert("Please enter client name");
+    // Block if duplicate found and not admin
+    if (dupWarning && dupWarning.length > 0 && !isSuper) {
+      return alert(`⚠️ This client is already assigned to ${dupWarning[0].Sales}. Please coordinate with them first.`);
+    }
     const f={...form,_owner:form._owner||user.name,Sales:form.Sales||user.name};
     if (editItem) await onUpdate(editItem._id,f); else { const{_id,...c}=f; await onAdd(c); }
-    setModal(false);
+    setModal(false); setDupWarning(null);
   }
   async function del(i) { if (confirm("Delete?")) await onDelete(filtered[i]._id); }
+
   return (
     <div>
+      {/* Client Ownership Search Box — always visible at top */}
+      <ClientOwnerSearch allClients={data} />
+
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
         <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} clients</div>
         <div style={{ display:"flex", gap:8 }}>
           <Btn onClick={()=>exportCSV(filtered,"Clients_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
           <Btn onClick={()=>exportPDF(filtered,"Clients",exportCols,"Client Management 客户管理 — Flowcolour")} style={{ background:"#1e2a3a", color:"#60a5fa", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
-          <button onClick={()=>{setForm(empty);setEditItem(null);setModal(true);}} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Add Client</button>
+          <button onClick={()=>{setForm(empty);setEditItem(null);setDupWarning(null);setModal(true);}} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Add Client</button>
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
       <DataTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} />
-      {modal && <Modal title={editItem?"Edit Client":"New Client 新增客户"} onClose={()=>setModal(false)}>
-        <Field label="Client 公司名称"><input style={IS} value={form.Client} onChange={e=>fv("Client",e.target.value)} /></Field>
+
+      {modal && <Modal title={editItem?"Edit Client":"New Client 新增客户"} onClose={()=>{setModal(false);setDupWarning(null);}}>
+        <Field label="Client 公司名称">
+          <input style={IS} value={form.Client}
+            onChange={e=>{fv("Client",e.target.value); checkDuplicate(e.target.value);}}
+            placeholder="Enter client name..." />
+        </Field>
+
+        {/* Duplicate warning inside form */}
+        {dupWarning && dupWarning.length > 0 && (
+          <div style={{ background:"#2d1515", border:"1px solid #ef444455", borderRadius:10, padding:"12px 16px", marginBottom:14 }}>
+            <div style={{ color:"#fc8181", fontWeight:700, fontSize:13, marginBottom:8 }}>
+              ⚠️ Similar client already exists! 检测到相似客户名称
+            </div>
+            {dupWarning.map((d,i) => (
+              <div key={i} style={{ display:"flex", gap:16, fontSize:13, padding:"6px 10px", background:"#1a1f2e", borderRadius:8, marginBottom:4 }}>
+                <span style={{ color:"#e2e8f0", fontWeight:600 }}>🏢 {d.Client}</span>
+                <span style={{ color:"#a78bfa" }}>👤 {d.Sales}</span>
+                <span style={{ color:"#718096" }}>📍 {d.Region} · {d.Country}</span>
+              </div>
+            ))}
+            {!isSuper && <div style={{ color:"#fc818188", fontSize:12, marginTop:8 }}>Non-admin users cannot overwrite an existing client ownership.</div>}
+            {isSuper && <div style={{ color:"#f59e0b", fontSize:12, marginTop:8 }}>⚡ Admin can still proceed to add/update.</div>}
+          </div>
+        )}
+
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Field label="Contact 联系人"><input style={IS} value={form.Contact||""} onChange={e=>fv("Contact",e.target.value)} /></Field>
           <Field label="Email 邮箱"><input style={IS} type="email" value={form.Email||""} onChange={e=>fv("Email",e.target.value)} /></Field>
           <Field label="Region 地区"><select style={SS} value={form.Region} onChange={e=>{fv("Region",e.target.value);fv("Country",(COUNTRIES_BY_REGION[e.target.value]||["Others"])[0]);}}>{REGIONS_EN.map(r=><option key={r}>{r}</option>)}</select></Field>
           <Field label="Country 国家"><select style={SS} value={form.Country} onChange={e=>fv("Country",e.target.value)}>{countries.map(c=><option key={c}>{c}</option>)}</select></Field>
           <Field label="Status 状态"><select style={SS} value={form.Status||"Pending"} onChange={e=>fv("Status",e.target.value)}>{["Pending","Active","Inactive","Lost"].map(s=><option key={s}>{s}</option>)}</select></Field>
-          <Field label="Sales 负责业务"><input style={{...IS,opacity:isSuper?1:0.6}} value={form.Sales||""} disabled={!isSuper} onChange={e=>fv("Sales",e.target.value)} /></Field>
+          <Field label="Sales Owner 负责业务"><input style={{...IS,opacity:isSuper?1:0.6}} value={form.Sales||""} disabled={!isSuper} onChange={e=>fv("Sales",e.target.value)} /></Field>
           <Field label="Last Contact 最近联系"><input style={IS} type="date" value={form.LastContact||""} onChange={e=>fv("LastContact",e.target.value)} /></Field>
         </div>
         <Field label="Notes 备注"><textarea style={{...IS,resize:"vertical",minHeight:60}} value={form.Notes||""} onChange={e=>fv("Notes",e.target.value)} /></Field>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <Btn onClick={()=>setModal(false)} style={{ background:"#2d3748", color:"#a0aec0", padding:"10px 20px" }}>Cancel</Btn>
-          <Btn onClick={save} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"10px 24px" }}>Save</Btn>
+          <Btn onClick={()=>{setModal(false);setDupWarning(null);}} style={{ background:"#2d3748", color:"#a0aec0", padding:"10px 20px" }}>Cancel</Btn>
+          <Btn onClick={save} style={{ background: dupWarning&&!isSuper?"#4a3030":"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"10px 24px" }}>
+            {dupWarning&&!isSuper?"⚠️ Blocked":"Save"}
+          </Btn>
         </div>
       </Modal>}
     </div>
