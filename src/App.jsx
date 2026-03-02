@@ -149,22 +149,22 @@ function exportPDF(data, filename, cols, title) {
 // ─── STYLED DATE INPUT ────────────────────────────────────────────────────────
 function DateInput({ value, onChange, placeholder }) {
   return (
-    <div style={{ position:"relative", display:"inline-flex", alignItems:"center" }}>
-      <span style={{ position:"absolute", left:10, fontSize:14, pointerEvents:"none", zIndex:1 }}>📅</span>
-      <input
-        type="date"
-        value={value||""}
-        onChange={onChange}
-        style={{
-          ...IS, width:"auto", minWidth:150, paddingLeft:32, paddingRight:10,
-          background:"#1a1f2e", border:"1px solid #4a3f6b", borderRadius:8,
-          color: value ? "#e2e8f0" : "#718096",
-          colorScheme:"dark",
-          cursor:"pointer",
-        }}
-      />
-      {!value && <span style={{ position:"absolute", left:34, color:"#718096", fontSize:13, pointerEvents:"none" }}>{placeholder}</span>}
-    </div>
+    <input
+      type="date"
+      value={value||""}
+      onChange={onChange}
+      title={placeholder}
+      style={{
+        ...IS, width:160,
+        background:"#1a1f2e",
+        border:"1px solid #4a3f6b",
+        borderRadius:8,
+        color:"#e2e8f0",
+        colorScheme:"dark",
+        cursor:"pointer",
+        fontSize:13,
+      }}
+    />
   );
 }
 
@@ -363,7 +363,7 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
       <DataTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} />
       {modal && <Modal title={editItem?"Edit Tracking":"New Tracking Record"} onClose={()=>setModal(false)}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Field label="Date 日期"><input style={IS} type="date" value={form.Date} onChange={e=>fv("Date",e.target.value)} /></Field>
+          <Field label="Date 日期"><input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.Date} onChange={e=>fv("Date",e.target.value)} /></Field>
           <Field label="Client 客户"><input style={IS} value={form.Client} onChange={e=>fv("Client",e.target.value)} placeholder="Client name" /></Field>
           <Field label="Region 地区"><select style={SS} value={form.Region} onChange={e=>{fv("Region",e.target.value);fv("Country",(COUNTRIES_BY_REGION[e.target.value]||["Others"])[0]);}}>{REGIONS_EN.map(r=><option key={r}>{r}</option>)}</select></Field>
           <Field label="Country 国家"><select style={SS} value={form.Country} onChange={e=>fv("Country",e.target.value)}>{countries.map(c=><option key={c}>{c}</option>)}</select></Field>
@@ -589,7 +589,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
           )}
         </Field>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Field label="Date 日期"><input style={IS} type="date" value={form.Date} onChange={e=>fv("Date",e.target.value)} /></Field>
+          <Field label="Date 日期"><input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.Date} onChange={e=>fv("Date",e.target.value)} /></Field>
           <Field label="Currency 货币"><select style={SS} value={form.Currency} onChange={e=>fv("Currency",e.target.value)}>{CURRENCIES.map(c=><option key={c}>{c}</option>)}</select></Field>
           <Field label="Region 地区"><select style={SS} value={form.Region} onChange={e=>{fv("Region",e.target.value);fv("Country",(COUNTRIES_BY_REGION[e.target.value]||["Others"])[0]);}}>{REGIONS_EN.map(r=><option key={r}>{r}</option>)}</select></Field>
           <Field label="Country 国家"><select style={SS} value={form.Country} onChange={e=>fv("Country",e.target.value)}>{countries.map(c=><option key={c}>{c}</option>)}</select></Field>
@@ -851,7 +851,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
           <Field label="Country 国家"><select style={SS} value={form.Country} onChange={e=>fv("Country",e.target.value)}>{countries.map(c=><option key={c}>{c}</option>)}</select></Field>
           <Field label="Status 状态"><select style={SS} value={form.Status||"Pending"} onChange={e=>fv("Status",e.target.value)}>{["Pending","Active","Inactive","Lost"].map(s=><option key={s}>{s}</option>)}</select></Field>
           <Field label="Sales Owner 负责业务"><input style={{...IS,opacity:isSuper?1:0.6}} value={form.Sales||""} disabled={!isSuper} onChange={e=>fv("Sales",e.target.value)} /></Field>
-          <Field label="Last Contact 最近联系"><input style={IS} type="date" value={form.LastContact||""} onChange={e=>fv("LastContact",e.target.value)} /></Field>
+          <Field label="Last Contact 最近联系"><input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.LastContact||""} onChange={e=>fv("LastContact",e.target.value)} /></Field>
         </div>
         <Field label="Notes 备注"><textarea style={{...IS,resize:"vertical",minHeight:60}} value={form.Notes||""} onChange={e=>fv("Notes",e.target.value)} /></Field>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
@@ -933,7 +933,7 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Field label="Sales 业务员"><input style={{...IS,opacity:isSuper?1:0.6}} value={form.Sales||""} disabled={!isSuper} onChange={e=>fv("Sales",e.target.value)} /></Field>
           <Field label="Type 类型"><select style={SS} value={form.Type||"Weekly"} onChange={e=>fv("Type",e.target.value)}>{["Daily","Weekly","Monthly"].map(t=><option key={t}>{t}</option>)}</select></Field>
-          <Field label="Date 日期"><input style={IS} type="date" value={form.Date||""} onChange={e=>fv("Date",e.target.value)} /></Field>
+          <Field label="Date 日期"><input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.Date||""} onChange={e=>fv("Date",e.target.value)} /></Field>
         </div>
         <Field label="Completed Work 本期完成 *"><textarea style={{...IS,resize:"vertical",minHeight:90}} value={form.Done||""} onChange={e=>fv("Done",e.target.value)} placeholder="Describe completed work this period..." /></Field>
         <Field label="Next Plan 下期计划"><textarea style={{...IS,resize:"vertical",minHeight:70}} value={form.Plan||""} onChange={e=>fv("Plan",e.target.value)} /></Field>
