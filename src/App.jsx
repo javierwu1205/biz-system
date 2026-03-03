@@ -360,7 +360,8 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
-      <DataTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} />
+      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序</div>
+      <SortableTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Date" sortDesc={true} />
       {modal && <Modal title={editItem?"Edit Tracking":"New Tracking Record"} onClose={()=>setModal(false)}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Field label="Date 日期"><input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.Date} onChange={e=>fv("Date",e.target.value)} /></Field>
@@ -565,7 +566,8 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
-      <DataTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} />
+      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序</div>
+      <SortableTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Date" sortDesc={true} />
 
       {modal && <Modal title={editItem?"Edit Deal":"New Deal 新增报价"} onClose={()=>setModal(false)}>
         {/* Client with autocomplete */}
@@ -637,28 +639,42 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
 }
 
 // ─── SORTABLE TABLE ───────────────────────────────────────────────────────────
-function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort }) {
+function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false }) {
   const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
-  const [sortDir, setSortDir] = useState("asc");
+  const [sortDir, setSortDir] = useState(sortDesc ? "desc" : "asc");
   function toggleSort(h) {
     if (sortCol === h) setSortDir(d => d==="asc"?"desc":"asc");
     else { setSortCol(h); setSortDir("asc"); }
   }
+  // Extract sortable string value — handles JSX by falling back to empty
+  function rawVal(row, col) {
+    const v = row[col];
+    if (v === null || v === undefined) return "";
+    if (typeof v === "string" || typeof v === "number") return String(v);
+    // For React elements (JSX), try to get text from props or return ""
+    return typeof v === "object" && v.props ? "" : String(v);
+  }
   const sorted = [...rows].sort((a,b) => {
-    const va = String(a[sortCol]||"").toLowerCase();
-    const vb = String(b[sortCol]||"").toLowerCase();
-    return sortDir==="asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    // For Date column, use raw Date field for proper sorting
+    const va = rawVal(a, sortCol);
+    const vb = rawVal(b, sortCol);
+    // numeric sort for days/numbers
+    const na = parseFloat(va), nb = parseFloat(vb);
+    let cmp;
+    if (!isNaN(na) && !isNaN(nb)) cmp = na - nb;
+    else cmp = va.localeCompare(vb);
+    return sortDir==="asc" ? cmp : -cmp;
   });
   return (
     <div style={{ overflowX:"auto" }}>
-      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, tableLayout:"auto" }}>
         <thead><tr>
           {headers.map(h => (
-            <th key={h} onClick={()=>toggleSort(h)} style={{ textAlign:"left", padding:"10px 12px", color: sortCol===h?"#a78bfa":"#718096", fontWeight:600, fontSize:12, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap", cursor:"pointer", userSelect:"none" }}>
+            <th key={h} onClick={()=>toggleSort(h)} style={{ textAlign:"left", padding:"10px 10px", color: sortCol===h?"#a78bfa":"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap", cursor:"pointer", userSelect:"none" }}>
               {h} {sortCol===h ? (sortDir==="asc"?"↑":"↓") : <span style={{ opacity:0.3 }}>↕</span>}
             </th>
           ))}
-          <th style={{ padding:"10px 12px", color:"#718096", fontSize:12, borderBottom:"1px solid #2d3748" }}>Actions</th>
+          <th style={{ padding:"10px 10px", color:"#718096", fontSize:11, borderBottom:"1px solid #2d3748", width:90 }}>Actions</th>
         </tr></thead>
         <tbody>
           {sorted.length === 0
@@ -667,13 +683,13 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort }
               <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
                 onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
-                {headers.map(h => <td key={h} style={{ padding:"10px 12px", color:"#cbd5e0", whiteSpace:"nowrap", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis" }}>
-                  {h==="Status" ? <Badge status={row[h]} /> : row[h]}
+                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:"#cbd5e0", verticalAlign:"middle" }}>
+                  {h==="Status"||h==="Stage" ? <Badge status={row[h]} /> : row[h]}
                 </td>)}
-                <td style={{ padding:"10px 12px", whiteSpace:"nowrap" }}>
+                <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
                   {(canEdit ? canEdit(row) : true)
-                    ? <><Btn onClick={()=>onEdit(rows.indexOf(row))} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 10px", fontSize:12, marginRight:6 }}>Edit</Btn>
-                       <Btn onClick={()=>onDelete(rows.indexOf(row))} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 10px", fontSize:12 }}>Delete</Btn></>
+                    ? <><Btn onClick={()=>onEdit(rows.indexOf(row))} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
+                       <Btn onClick={()=>onDelete(rows.indexOf(row))} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn></>
                     : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
                 </td>
               </tr>
@@ -873,6 +889,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
 }
 
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
+// ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
 function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
@@ -881,28 +898,87 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   const [form, setForm] = useState({});
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
   const empty={ Sales:user.name, Date:new Date().toISOString().slice(0,10), Type:"Weekly", Done:"", Plan:"", Issues:"", _owner:user.name };
-  const filtered = (() => {
-    return data.filter(d => {
-      if (filters.person && d._owner!==filters.person && d.Sales!==filters.person) return false;
-      if (filters.dateFrom && d.Date && d.Date < filters.dateFrom) return false;
-      if (filters.dateTo && d.Date && d.Date > filters.dateTo) return false;
-      return true;
-    });
-  })();
+
+  // Filter
+  const filtered = data.filter(d => {
+    if (filters.person && d._owner!==filters.person && d.Sales!==filters.person) return false;
+    if (filters.dateFrom && d.Date && d.Date < filters.dateFrom) return false;
+    if (filters.dateTo && d.Date && d.Date > filters.dateTo) return false;
+    return true;
+  });
+
   const exportCols = ["Sales","Type","Date","Done","Plan","Issues"];
-  function openEdit(i) { const item=filtered[i]; setForm({...item}); setEditItem(item); setModal(true); }
+
+  // Group by week — week starts Sunday, label = Sunday of that week
+  function getWeekStart(dateStr) {
+    if (!dateStr) return "Unknown";
+    const d = new Date(dateStr);
+    const day = d.getDay(); // 0=Sun
+    const sunday = new Date(d);
+    sunday.setDate(d.getDate() - day);
+    return sunday.toISOString().slice(0,10);
+  }
+  function weekLabel(weekStart) {
+    const d = new Date(weekStart);
+    const end = new Date(d); end.setDate(d.getDate()+6);
+    const fmt = (dt) => `${dt.getMonth()+1}/${dt.getDate()}`;
+    return `Week of ${fmt(d)} – ${fmt(end)}`;
+  }
+
+  // Group reports by weekStart, sorted newest first
+  const weekMap = {};
+  filtered.forEach(r => {
+    const ws = getWeekStart(r.Date);
+    if (!weekMap[ws]) weekMap[ws] = [];
+    weekMap[ws].push(r);
+  });
+  const weekKeys = Object.keys(weekMap).sort((a,b)=>b.localeCompare(a)); // newest first
+
+  function openEdit(item) { setForm({...item}); setEditItem(item); setModal(true); }
   async function save() {
     if (!form.Done) return alert("Please fill in completed work");
     const f={...form,_owner:form._owner||user.name,Sales:form.Sales||user.name};
     if (editItem) await onUpdate(editItem._id,f); else { const{_id,...c}=f; await onAdd(c); }
     setModal(false);
   }
-  async function del(i) { if (confirm("Delete?")) await onDelete(filtered[i]._id); }
+  async function del(item) { if (confirm("Delete?")) await onDelete(item._id); }
   const canEdit = (d) => isSuper || d._owner===user.name;
+
+  const ReportCard = ({d}) => (
+    <div style={{ background:"#0f1420", border:"1px solid #2d3748", borderRadius:12, padding:14, position:"relative", minHeight:120 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+        <div>
+          <div style={{ color:"#a78bfa", fontWeight:700, fontSize:13 }}>{d.Sales}</div>
+          <div style={{ color:"#4a5568", fontSize:11, marginTop:2 }}>{d.Type} · {d.Date}</div>
+        </div>
+        {canEdit(d) && (
+          <div style={{ display:"flex", gap:4 }}>
+            <Btn onClick={()=>openEdit(d)} style={{ background:"#2d3748", color:"#a0aec0", padding:"3px 8px", fontSize:11 }}>Edit</Btn>
+            <Btn onClick={()=>del(d)} style={{ background:"#3d1515", color:"#fc8181", padding:"3px 8px", fontSize:11 }}>Del</Btn>
+          </div>
+        )}
+      </div>
+      <div style={{ marginBottom:8 }}>
+        <div style={{ color:"#718096", fontSize:10, fontWeight:600, marginBottom:3 }}>✅ COMPLETED</div>
+        <div style={{ color:"#cbd5e0", fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Done||"—"}</div>
+      </div>
+      <div style={{ marginBottom: d.Issues ? 8 : 0 }}>
+        <div style={{ color:"#718096", fontSize:10, fontWeight:600, marginBottom:3 }}>📋 NEXT PLAN</div>
+        <div style={{ color:"#a0aec0", fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Plan||"—"}</div>
+      </div>
+      {d.Issues && (
+        <div style={{ background:"#2d1a1a", borderRadius:8, padding:"6px 10px", marginTop:8 }}>
+          <div style={{ color:"#fc8181", fontSize:10, fontWeight:600, marginBottom:2 }}>⚠️ ISSUES</div>
+          <div style={{ color:"#fbb6b6", fontSize:12, whiteSpace:"pre-wrap" }}>{d.Issues}</div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b> reports</div>
+        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b> reports · <b style={{ color:"#718096", fontSize:12 }}>{weekKeys.length} weeks</b></div>
         <div style={{ display:"flex", gap:8 }}>
           {isSuper && <>
             <Btn onClick={()=>exportCSV(filtered,"Reports_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
@@ -911,31 +987,53 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
           <button onClick={()=>{setForm(empty);setEditItem(null);setModal(true);}} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Submit Report</button>
         </div>
       </div>
-      {isSuper && <FilterBar isSuper={true} filters={filters} setFilters={setFilters} showPerson={true} showRegion={false} />}
-      <div style={{ color:"#4a5568", fontSize:12, marginBottom:16 }}>📢 Reports visible to all members</div>
-      <div style={{ display:"grid", gap:14 }}>
-        {filtered.length===0 && <div style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No reports yet</div>}
-        {filtered.map((d,i) => (
-          <div key={d._id||i} style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:12, padding:18 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
-              <div>
-                <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>{d.Sales}</span>
-                <span style={{ color:"#718096", fontSize:13, marginLeft:10 }}>{d.Type} · {d.Date}</span>
-                {d._owner===user.name && <span style={{ marginLeft:8, background:"#667eea22", color:"#a78bfa", fontSize:11, padding:"2px 8px", borderRadius:10 }}>Mine</span>}
+      <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} showPerson={true} showRegion={false} />
+      <div style={{ color:"#4a5568", fontSize:12, marginBottom:16 }}>📢 Reports visible to all members · grouped by week (newest first) · Sunday as week start</div>
+
+      {weekKeys.length === 0 && <div style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No reports yet</div>}
+
+      {weekKeys.map(ws => {
+        const weekReports = weekMap[ws];
+        // For each sales member, find their report(s) in this week
+        const byPerson = {};
+        weekReports.forEach(r => {
+          const nm = r.Sales || r._owner || "Unknown";
+          if (!byPerson[nm]) byPerson[nm] = [];
+          byPerson[nm].push(r);
+        });
+        // Show all members, fill missing with placeholder
+        const allMembers = [...SALES_MEMBERS];
+        // also include any members who submitted but aren't in list
+        weekReports.forEach(r => { if (!allMembers.includes(r.Sales)) allMembers.push(r.Sales); });
+        return (
+          <div key={ws} style={{ marginBottom:24 }}>
+            {/* Week header */}
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+              <div style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", borderRadius:8, padding:"4px 14px", color:"#fff", fontSize:13, fontWeight:700 }}>
+                📅 {weekLabel(ws)}
               </div>
-              {canEdit(d) && <div style={{ display:"flex", gap:8 }}>
-                <Btn onClick={()=>openEdit(i)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 10px", fontSize:12 }}>Edit</Btn>
-                <Btn onClick={()=>del(i)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 10px", fontSize:12 }}>Delete</Btn>
-              </div>}
+              <div style={{ color:"#4a5568", fontSize:12 }}>{weekReports.length} report{weekReports.length!==1?"s":""}</div>
+              <div style={{ flex:1, height:1, background:"#1e2433" }} />
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-              <div><div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>✅ Completed 本期完成</div><div style={{ color:"#cbd5e0", fontSize:13, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Done}</div></div>
-              <div><div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>📋 Next Plan 下期计划</div><div style={{ color:"#cbd5e0", fontSize:13, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Plan}</div></div>
+            {/* 5-column grid */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10 }}>
+              {allMembers.map(name => {
+                const reps = byPerson[name];
+                if (!reps) {
+                  return (
+                    <div key={name} style={{ background:"#0f1420", border:"1px dashed #1e2433", borderRadius:12, padding:14, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", opacity:0.5 }}>
+                      <div style={{ color:"#4a5568", fontSize:12, fontWeight:600 }}>{name}</div>
+                      <div style={{ color:"#2d3748", fontSize:11, marginTop:4 }}>No report</div>
+                    </div>
+                  );
+                }
+                return reps.map((d,j) => <ReportCard key={d._id||j} d={d} />);
+              })}
             </div>
-            {d.Issues && <div style={{ marginTop:10, background:"#2d1a1a", borderRadius:8, padding:"8px 12px" }}><div style={{ color:"#fc8181", fontSize:11, marginBottom:4 }}>⚠️ Issues / Support Needed</div><div style={{ color:"#fbb6b6", fontSize:13, whiteSpace:"pre-wrap" }}>{d.Issues}</div></div>}
           </div>
-        ))}
-      </div>
+        );
+      })}
+
       {modal && <Modal title={editItem?"Edit Report":"Submit Report 提交工作汇报"} onClose={()=>setModal(false)}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Field label="Sales 业务员"><input style={{...IS,opacity:isSuper?1:0.6}} value={form.Sales||""} disabled={!isSuper} onChange={e=>fv("Sales",e.target.value)} /></Field>
@@ -1012,7 +1110,12 @@ function WeeklyActivity({ pipeline, tracking, reports }) {
 
 // ─── CLIENT HEALTH 客户健康度 (admin only) ────────────────────────────────────
 function ClientHealth({ pipeline, clients }) {
-  // Find all unique clients from pipeline with their last order date
+  const [riskFilter, setRiskFilter] = useState("all");
+  const [salesFilter, setSalesFilter] = useState("");
+  const [sortCol, setSortCol]   = useState("days");
+  const [sortDir, setSortDir]   = useState("desc");
+
+  // Build client map from pipeline orders + client list
   const clientMap = {};
   pipeline.filter(d=>d.Stage==="Order").forEach(d => {
     const key = d.Client;
@@ -1020,50 +1123,102 @@ function ClientHealth({ pipeline, clients }) {
       clientMap[key] = { client:d.Client, sales:d.Sales||d._owner||"—", lastOrder:d.Date, region:d.Region, country:d.Country };
     }
   });
-  // Also include clients from client management
   clients.forEach(c => {
     const key = c.Client||c.公司名称;
     if (!clientMap[key]) clientMap[key] = { client:key, sales:c.Sales||c.负责人||"—", lastOrder:c.LastContact||c.最近联系||"", region:c.Region||c.地区||"—", country:c.Country||c.国家||"—" };
   });
+
   const now = new Date();
-  const rows = Object.values(clientMap).map(c => {
+  const allRows = Object.values(clientMap).map(c => {
     const last = c.lastOrder ? new Date(c.lastOrder) : null;
-    const days = last ? Math.floor((now-last)/864e5) : 999;
-    const risk = days<=30?"🟢 Low":days<=90?"🟡 Medium":"🔴 High";
+    const days = last ? Math.floor((now-last)/864e5) : 9999;
+    const risk = days<=30?"Low":days<=90?"Medium":"High";
+    const riskLabel = days<=30?"🟢 Healthy":days<=90?"🟡 Medium":"🔴 High Risk";
     const riskColor = days<=30?"#10b981":days<=90?"#f59e0b":"#ef4444";
     const dayStr = last ? `${days} days ago` : "No data";
-    return { ...c, days, dayStr, risk, riskColor };
-  }).sort((a,b)=>b.days-a.days);
-  const [riskFilter, setRiskFilter] = useState("all");
-  const filtered = riskFilter==="all" ? rows : rows.filter(r=>r.risk.includes(riskFilter==="high"?"High":riskFilter==="medium"?"Medium":"Low"));
+    return { ...c, days, dayStr, risk, riskLabel, riskColor };
+  });
+
+  // Filter
+  const filtered = allRows.filter(r => {
+    if (riskFilter !== "all" && r.risk !== riskFilter) return false;
+    if (salesFilter && r.sales !== salesFilter) return false;
+    return true;
+  });
+
+  // Sort
+  function toggleSort(col) {
+    if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  }
+  const sorted = [...filtered].sort((a,b) => {
+    let va=a[sortCol], vb=b[sortCol];
+    if (sortCol==="days") { va=Number(va||0); vb=Number(vb||0); }
+    else { va=String(va||"").toLowerCase(); vb=String(vb||"").toLowerCase(); }
+    const cmp = typeof va==="number" ? va-vb : va.localeCompare(vb);
+    return sortDir==="asc"?cmp:-cmp;
+  });
+
+  const COLS = [
+    ["client","Client 客户"],
+    ["sales","Sales 业务"],
+    ["region","Region 地区"],
+    ["country","Country 国家"],
+    ["lastOrder","Last Order 最后订单"],
+    ["days","Days Since 距今天数"],
+    ["risk","Risk 风险等级"],
+  ];
+
   return (
     <div>
-      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
-        <span style={{ color:"#718096", fontSize:13 }}>Filter by Risk:</span>
-        {[["all","All"],["high","🔴 High Risk"],["medium","🟡 Medium"],["low","🟢 Healthy"]].map(([v,l])=>(
-          <Btn key={v} onClick={()=>setRiskFilter(v)} style={{ background:riskFilter===v?"#667eea":"#2d3748", color:riskFilter===v?"#fff":"#a0aec0", padding:"7px 14px", fontSize:12 }}>{l}</Btn>
+      {/* Filter row */}
+      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center", padding:"10px 14px", background:"#0a0e17", borderRadius:10, border:"1px solid #1e2433" }}>
+        <span style={{ color:"#718096", fontSize:12, whiteSpace:"nowrap" }}>Risk:</span>
+        {[["all","All"],["High","🔴 High"],["Medium","🟡 Medium"],["Low","🟢 Healthy"]].map(([v,l])=>(
+          <Btn key={v} onClick={()=>setRiskFilter(v)} style={{ background:riskFilter===v?"#667eea":"#2d3748", color:riskFilter===v?"#fff":"#a0aec0", padding:"6px 12px", fontSize:12 }}>{l}</Btn>
         ))}
-        <div style={{ marginLeft:"auto", color:"#718096", fontSize:12 }}>
-          🔴 {rows.filter(r=>r.risk.includes("High")).length} &nbsp; 🟡 {rows.filter(r=>r.risk.includes("Medium")).length} &nbsp; 🟢 {rows.filter(r=>r.risk.includes("Low")).length}
+        <div style={{ width:1, height:20, background:"#2d3748", margin:"0 4px" }} />
+        <span style={{ color:"#718096", fontSize:12, whiteSpace:"nowrap" }}>Sales:</span>
+        <select style={{ ...SS, width:"auto", minWidth:120 }} value={salesFilter} onChange={e=>setSalesFilter(e.target.value)}>
+          <option value="">All Sales</option>
+          {SALES_MEMBERS.map(m=><option key={m} value={m}>{m}</option>)}
+        </select>
+        {(riskFilter!=="all"||salesFilter) && (
+          <Btn onClick={()=>{setRiskFilter("all");setSalesFilter("");}} style={{ background:"#2d3748", color:"#a0aec0", padding:"6px 12px", fontSize:12 }}>✕ Clear</Btn>
+        )}
+        <div style={{ marginLeft:"auto", display:"flex", gap:12, fontSize:12, color:"#718096" }}>
+          <span>🔴 {allRows.filter(r=>r.risk==="High").length}</span>
+          <span>🟡 {allRows.filter(r=>r.risk==="Medium").length}</span>
+          <span>🟢 {allRows.filter(r=>r.risk==="Low").length}</span>
         </div>
       </div>
+      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序 · <b style={{ color:"#e2e8f0" }}>{sorted.length}</b>{sorted.length<allRows.length?` / ${allRows.length}`:""} clients</div>
+
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
           <thead><tr>
-            {["Client","Sales","Region","Last Order","Days Since","Risk"].map(h=><th key={h} style={{ textAlign:"left", padding:"10px 12px", color:"#718096", fontWeight:600, fontSize:12, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>)}
+            {COLS.map(([col,label])=>(
+              <th key={col} onClick={()=>toggleSort(col)}
+                style={{ textAlign:"left", padding:"10px 12px", color:sortCol===col?"#a78bfa":"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap", cursor:"pointer", userSelect:"none" }}>
+                {label} {sortCol===col?(sortDir==="asc"?"↑":"↓"):<span style={{ opacity:0.3 }}>↕</span>}
+              </th>
+            ))}
           </tr></thead>
           <tbody>
-            {filtered.length===0 ? <tr><td colSpan={6} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No client data</td></tr>
-              : filtered.map((r,i) => (
+            {sorted.length===0 ? <tr><td colSpan={7} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No client data</td></tr>
+              : sorted.map((r,i) => (
               <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
                 onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
                 <td style={{ padding:"10px 12px", color:"#e2e8f0", fontWeight:600 }}>{r.client}</td>
                 <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.sales}</td>
                 <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.region}</td>
+                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.country}</td>
                 <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.lastOrder||"—"}</td>
                 <td style={{ padding:"10px 12px", color:r.riskColor, fontWeight:600 }}>{r.dayStr}</td>
-                <td style={{ padding:"10px 12px" }}><span style={{ background:r.riskColor+"22", color:r.riskColor, border:`1px solid ${r.riskColor}44`, padding:"3px 12px", borderRadius:20, fontSize:12, fontWeight:600 }}>{r.risk}</span></td>
+                <td style={{ padding:"10px 12px" }}>
+                  <span style={{ background:r.riskColor+"22", color:r.riskColor, border:`1px solid ${r.riskColor}44`, padding:"3px 12px", borderRadius:20, fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>{r.riskLabel}</span>
+                </td>
               </tr>
             ))}
           </tbody>
