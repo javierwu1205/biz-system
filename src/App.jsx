@@ -13,11 +13,8 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
-// ─── PDF STORAGE via Cloudinary ───────────────────────────────────────────────
-const CLOUDINARY_CLOUD_NAME = "dsyjbeg1";
-const CLOUDINARY_UPLOAD_PRESET = "flowcolour_pdf";
-const CLOUDINARY_CONFIGURED = true;
-
+// ─── PDF STORAGE (base64 in Firestore) ───────────────────────────────────────
+// Simple & reliable. Firestore free quota: 1GB (~300-500 PDFs).
 async function uploadPdfToCloudinary(file) {
   const base64str = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -25,33 +22,12 @@ async function uploadPdfToCloudinary(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  const fd = new FormData();
-  fd.append("file", base64str);
-  fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  fd.append("resource_type", "image");
-  // Cloudinary accepts PDF as image type and stores it correctly
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: fd }
-  );
-  const data = await res.json();
-  if (!data.error) return { url: data.secure_url, publicId: data.public_id, name: file.name };
-
-  // Final fallback — keep as base64 in Firestore, no error shown to user
-  console.warn("Cloudinary upload failed:", data.error?.message);
   return { url: "", publicId: "", name: file.name, fallbackBase64: base64str };
 }
-
 async function migrateBase64ToCloudinary(base64Data, fileName) {
-  const res = await fetch(base64Data);
-  const blob = await res.blob();
-  const file = new File([blob], fileName || "document.pdf", { type: "application/pdf" });
-  return uploadPdfToCloudinary(file);
+  return { url: "", publicId: "", name: fileName, fallbackBase64: base64Data };
 }
-
-// Cloudinary free plan doesn't support delete via client SDK without auth
-// We just keep old URLs — storage is 25GB free so no urgency to delete
-async function deletePdfFromStorage(publicId) { /* no-op on free plan */ }
+async function deletePdfFromStorage() {}
 
 function useFireCollection(colName) {
   const [data, setData] = useState([]);
@@ -829,96 +805,10 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
   );
 }
 
-// ─── PDF MIGRATION TOOL (Admin only) ─────────────────────────────────────────
-function PdfMigrationTool({ pipeline }) {
-  const legacy = pipeline.filter(d => d.pdfData && d.pdfData.startsWith("data:") && !d.pdfUrl);
-  const [migrating, setMigrating] = useState(false);
-  const [progress, setProgress] = useState([]);
-  const [done, setDone] = useState(false);
-
-  // Show setup banner if Cloudinary not configured yet
-  if (!CLOUDINARY_CONFIGURED) {
-    return (
-      <div style={{ background:"linear-gradient(135deg,#1a0a00,#2a1500)", border:"1px solid #ef444444", borderRadius:12, padding:"16px 18px", marginBottom:20 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-          <span style={{ fontSize:20 }}>⚙️</span>
-          <span style={{ color:"#ef4444", fontWeight:700, fontSize:14 }}>Cloudinary Setup Required 需要先设置</span>
-        </div>
-        <div style={{ color:"#a0aec0", fontSize:13, lineHeight:1.8 }}>
-          To store PDFs in the cloud (free), please follow these steps:<br/>
-          <b style={{ color:"#e2e8f0" }}>1.</b> Go to <a href="https://cloudinary.com/users/register_free" target="_blank" rel="noreferrer" style={{ color:"#60a5fa" }}>cloudinary.com</a> → Sign up free (no credit card)<br/>
-          <b style={{ color:"#e2e8f0" }}>2.</b> Dashboard → Settings → Upload → Add upload preset → set to <b style={{ color:"#f59e0b" }}>Unsigned</b><br/>
-          <b style={{ color:"#e2e8f0" }}>3.</b> Copy your <b style={{ color:"#f59e0b" }}>Cloud Name</b> and <b style={{ color:"#f59e0b" }}>Upload Preset name</b><br/>
-          <b style={{ color:"#e2e8f0" }}>4.</b> Send them to Claude → Claude will update the 2 lines in App.jsx for you ✅
-        </div>
-        {legacy.length > 0 && <div style={{ color:"#718096", fontSize:12, marginTop:8 }}>({legacy.length} existing PDF{legacy.length>1?"s":""} will be migrated once set up)</div>}
-      </div>
-    );
-  }
-
-  if (legacy.length === 0 && !done) return null;
-
-  async function runMigration() {
-    setMigrating(true);
-    setDone(false);
-    const log = [];
-    for (const rec of legacy) {
-      const entry = { client: rec.Client, status: "⏳", msg: "Uploading to Cloudinary..." };
-      log.push(entry);
-      setProgress([...log]);
-      try {
-        const result = await migrateBase64ToCloudinary(rec.pdfData, rec.pdfName || "document.pdf");
-        if (result.fallbackBase64) {
-          // Cloudinary failed, keep as-is
-          entry.status = "⚠️"; entry.msg = "Cloudinary unavailable — keeping in Firestore";
-        } else {
-          const updated = { ...rec, pdfUrl: result.url, pdfStoragePath: result.publicId, pdfData: "" };
-          const { _id, ...c } = updated;
-          await fireUpdate("pipeline", rec._id, c);
-          entry.status = "✅"; entry.msg = "Moved to Cloudinary ☁️";
-        }
-      } catch (err) {
-        entry.status = "❌"; entry.msg = err.message;
-      }
-      setProgress([...log]);
-    }
-    setMigrating(false);
-    setDone(true);
-  }
-
-  return (
-    <div style={{ background:"linear-gradient(135deg,#1a1500,#2a2000)", border:"1px solid #f59e0b44", borderRadius:12, padding:"16px 18px", marginBottom:20 }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize:20 }}>☁️</span>
-          <div>
-            <div style={{ color:"#f59e0b", fontWeight:700, fontSize:14 }}>PDF Migration → Cloudinary</div>
-            <div style={{ color:"#718096", fontSize:12, marginTop:2 }}>
-              {done ? "✅ All done! PDFs moved to Cloudinary. Firestore is now much lighter." : `Found ${legacy.length} record(s) with large base64 PDF in Firestore. Click to migrate to Cloudinary (free).`}
-            </div>
-          </div>
-        </div>
-        {!done && (
-          <button onClick={runMigration} disabled={migrating}
-            style={{ background: migrating?"#2d3748":"linear-gradient(135deg,#f59e0b,#d97706)", border:"none", color: migrating?"#718096":"#000", padding:"9px 18px", borderRadius:10, cursor: migrating?"not-allowed":"pointer", fontWeight:700, fontSize:13, whiteSpace:"nowrap" }}>
-            {migrating ? "⏳ Migrating..." : `🚀 Migrate ${legacy.length} PDF${legacy.length>1?"s":""}`}
-          </button>
-        )}
-      </div>
-      {progress.length > 0 && (
-        <div style={{ display:"grid", gap:4, maxHeight:200, overflowY:"auto" }}>
-          {progress.map((p,i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:"#00000033", borderRadius:6, padding:"6px 10px", fontSize:12 }}>
-              <span>{p.status}</span>
-              <span style={{ color:"#e2e8f0", fontWeight:600 }}>{p.client}</span>
-              <span style={{ color: p.status==="✅"?"#10b981":p.status==="❌"?"#ef4444":"#f59e0b" }}>{p.msg}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// ─── PDF MIGRATION TOOL — Hidden (Cloudinary free unsigned preset doesn't support raw/PDF)
+// PDFs remain stored as base64 in Firestore. This is fine for current usage.
+// To enable external storage, upgrade Cloudinary to a paid plan or use Firebase Storage (Blaze).
+function PdfMigrationTool({ pipeline }) { return null; }
 
 // ─── SORTABLE TABLE ───────────────────────────────────────────────────────────
 function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={} }) {
