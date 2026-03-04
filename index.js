@@ -1,4 +1,3 @@
-// v2.1-datesort-fix
 import { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
@@ -854,8 +853,9 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
             ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
             : sorted.map((row, i) => {
               const origIdx = rows.findIndex(r => r === row);
+              const rowKey = row._id || row._ts || i;
               return (
-              <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
+              <tr key={rowKey} style={{ borderBottom:"1px solid #161b27" }}
                 onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
                 {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:"#cbd5e0", verticalAlign:"middle" }}>
