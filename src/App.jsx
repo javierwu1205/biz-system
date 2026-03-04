@@ -1214,8 +1214,6 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
   const empty={ Sales:user.name, Date:new Date().toISOString().slice(0,10), Type:"Weekly", Done:"", Plan:"", Issues:"", _owner:user.name };
 
-  const isSuper = user.role === "admin";
-
   // Non-admin: only see own reports
   const visibleData = isSuper ? data : data.filter(d => d._owner===user.name || d.Sales===user.name);
 
