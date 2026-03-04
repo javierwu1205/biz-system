@@ -13,6 +13,38 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
+// ─── CLOUDINARY PDF STORAGE (Free, 25GB, no credit card) ─────────────────────
+// Sign up free at https://cloudinary.com → get your cloud_name and upload_preset
+// Replace these two values with yours:
+const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUD_NAME";   // e.g. "dxyz1234"
+const CLOUDINARY_UPLOAD_PRESET = "YOUR_UPLOAD_PRESET"; // e.g. "flowcolour_pdf"
+const CLOUDINARY_CONFIGURED = CLOUDINARY_CLOUD_NAME !== "YOUR_CLOUD_NAME";
+
+async function uploadPdfToCloudinary(file) {
+  if (!CLOUDINARY_CONFIGURED) throw new Error("Cloudinary not configured yet. See setup instructions.");
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  formData.append("resource_type", "raw"); // needed for PDF
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`, {
+    method: "POST", body: formData
+  });
+  if (!res.ok) throw new Error("Upload failed: " + res.statusText);
+  const data = await res.json();
+  return { url: data.secure_url, publicId: data.public_id, name: file.name };
+}
+
+async function migrateBase64ToCloudinary(base64Data, fileName) {
+  const res = await fetch(base64Data);
+  const blob = await res.blob();
+  const file = new File([blob], fileName || "document.pdf", { type: "application/pdf" });
+  return uploadPdfToCloudinary(file);
+}
+
+// Cloudinary free plan doesn't support delete via client SDK without auth
+// We just keep old URLs — storage is 25GB free so no urgency to delete
+async function deletePdfFromStorage(publicId) { /* no-op on free plan */ }
+
 function useFireCollection(colName) {
   const [data, setData] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -383,6 +415,47 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
   );
 }
 
+const NEXT_ACTION_OPTIONS = [
+  "Negotiation",
+  "Waiting for Payment",
+  "In Production",
+  "Ready to Ship",
+  "Completed",
+  "Closed – Lost",
+];
+
+// ─── FOLLOW-UP REMINDER BANNER ────────────────────────────────────────────────
+function FollowUpBanner({ pipeline, user }) {
+  const isSuper = user.role === "admin";
+  const today = new Date().toISOString().slice(0,10);
+  const mine = isSuper ? pipeline : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
+  const due = mine.filter(d => d.FollowUpDate && d.FollowUpDate <= today && d.Stage !== "Order" && d.NextAction !== "Closed – Lost" && d.NextAction !== "Completed");
+  if (due.length === 0) return null;
+  return (
+    <div style={{ background:"linear-gradient(135deg,#2d1a00,#3d2200)", border:"1px solid #f59e0b55", borderRadius:12, padding:"14px 18px", marginBottom:20 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+        <span style={{ fontSize:20 }}>🔔</span>
+        <span style={{ color:"#f59e0b", fontWeight:700, fontSize:15 }}>Follow-up Due 追踪提醒</span>
+        <span style={{ background:"#f59e0b", color:"#000", borderRadius:20, padding:"1px 10px", fontSize:12, fontWeight:700 }}>{due.length}</span>
+      </div>
+      <div style={{ display:"grid", gap:6 }}>
+        {due.map((d,i) => (
+          <div key={i} style={{ display:"flex", alignItems:"center", gap:10, background:"#00000033", borderRadius:8, padding:"8px 12px" }}>
+            <span style={{ fontSize:14 }}>⚠️</span>
+            <span style={{ color:"#fcd34d", fontWeight:600, fontSize:13 }}>{d.Client}</span>
+            <span style={{ color:"#a0aec0", fontSize:12 }}>·</span>
+            <span style={{ color:"#a0aec0", fontSize:12 }}>{d.NextAction||"—"}</span>
+            <span style={{ color:"#a0aec0", fontSize:12 }}>·</span>
+            <span style={{ color:"#f59e0b", fontSize:12, fontWeight:600 }}>Follow-up: {d.FollowUpDate}</span>
+            {d.FollowUpDate < today && <span style={{ background:"#ef444422", color:"#ef4444", border:"1px solid #ef444444", fontSize:11, padding:"1px 8px", borderRadius:10 }}>Overdue {Math.floor((new Date(today)-new Date(d.FollowUpDate))/864e5)}d</span>}
+            <span style={{ color:"#718096", fontSize:11, marginLeft:"auto" }}>{d.Sales}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── PIPELINE 报价 & 销售机会池 ───────────────────────────────────────────────
 function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
   const isSuper = user.role === "admin";
@@ -393,80 +466,147 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
   const [pdfViewer, setPdfViewer] = useState(null);
   const [clientSearch, setClientSearch] = useState("");
   const [showClientDrop, setShowClientDrop] = useState(false);
-  const [clientSummary, setClientSummary] = useState(null); // selected client name for summary modal
+  const [clientSummary, setClientSummary] = useState(null);
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
-  const empty = { Date:new Date().toISOString().slice(0,10), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"", Notes:"", pdfName:"", pdfData:"", Sales:user.name, _owner:user.name };
+  const empty = { Date:new Date().toISOString().slice(0,10), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", Sales:user.name, _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
   const filtered = applyFilters(visible, filters);
-  const exportCols = ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","Sales","NextAction","Notes"];
+  const exportCols = ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","Sales","NextAction","FollowUpDate","Notes"];
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
   const profit = (a,c) => { const p=Number(a||0)-Number(c||0); const pct=Number(a)>0?((p/Number(a))*100).toFixed(1):null; return {p, pct, pos:p>=0}; };
   const pr = profit(form.Amount, form.Cost);
 
-  // Client autocomplete from allClients
+  // Client autocomplete
   const clientSuggestions = clientSearch.trim().length > 0
     ? allClients.filter(c => (c.Client||"").toLowerCase().includes(clientSearch.toLowerCase())).slice(0, 8)
     : [];
-
   function selectClient(c) {
-    fv("Client", c.Client);
-    fv("Region", c.Region || "North America");
-    fv("Country", c.Country || "United States");
-    setClientSearch(c.Client);
-    setShowClientDrop(false);
+    fv("Client", c.Client); fv("Region", c.Region||"North America"); fv("Country", c.Country||"United States");
+    setClientSearch(c.Client); setShowClientDrop(false);
   }
 
-  function openModal(item=null) {
-    if (item) { setForm({...item}); setClientSearch(item.Client||""); }
-    else { setForm(empty); setClientSearch(""); }
-    setEditItem(item); setModal(true);
-  }
+  // Today for overdue highlight
+  const today = new Date().toISOString().slice(0,10);
+  const naColor = (na) => ({
+    "Completed":"#10b981","Ready to Ship":"#3b82f6","In Production":"#a78bfa",
+    "Waiting for Payment":"#f59e0b","Negotiation":"#60a5fa","Closed – Lost":"#ef4444",
+  }[na]||"#a0aec0");
 
+  // Rows — keep raw sortable fields + display fields
   const headers = isSuper
-    ? ["Date","Client","Location","Currency","Amount / Cost / Profit","Stage","Prob","Sales","Next Action","PDF"]
-    : ["Date","Client","Location","Currency","Amount / Cost / Profit","Stage","Prob","Next Action","PDF"];
+    ? ["Date","Client","Location","Cur","Amount / Cost / Profit","Stage","Prob","Sales","Status","Follow-up","PDF"]
+    : ["Date","Client","Location","Cur","Amount / Cost / Profit","Stage","Prob","Status","Follow-up","PDF"];
+
   const rows = filtered.map(d => {
     const {p,pct,pos} = profit(d.Amount, d.Cost);
-    return { ...d,
+    const isOverdue = d.FollowUpDate && d.FollowUpDate <= today && d.Stage!=="Order" && d.NextAction!=="Completed" && d.NextAction!=="Closed – Lost";
+    return {
+      ...d,
+      // Raw sort keys (used by SortableTable rawVal)
+      _sortDate: d.Date||"",
+      _sortClient: d.Client||"",
+      _sortLocation: (d.Country||""),
+      _sortAmount: Number(d.Amount||0),
+      _sortFollowUp: d.FollowUpDate||"",
+      _sortStatus: d.NextAction||"",
+      // Display cells
+      Date: <span style={{ color:"#a0aec0", fontSize:12, whiteSpace:"nowrap" }}>{d.Date||"—"}</span>,
       Client: <span style={{ display:"flex", alignItems:"center", gap:4 }}>
-        <span style={{ maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block" }}>{d.Client}</span>
+        <span style={{ maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block", color:"#e2e8f0", fontWeight:600 }}>{d.Client}</span>
         <button onClick={e=>{e.stopPropagation();setClientSummary(d.Client);}} style={{ background:"#667eea22", border:"1px solid #667eea44", color:"#a78bfa", padding:"1px 5px", borderRadius:5, cursor:"pointer", fontSize:10, flexShrink:0 }}>📊</button>
       </span>,
-      Location: <span style={{ color:"#a0aec0", fontSize:12 }}>{d.Region}<br/><span style={{ color:"#718096", fontSize:11 }}>{d.Country}</span></span>,
-      "Amount / Cost / Profit": <span style={{ fontSize:12, lineHeight:1.7 }}>
+      Location: <span style={{ fontSize:12 }}><span style={{ color:"#a0aec0" }}>{d.Region}</span><br/><span style={{ color:"#718096", fontSize:11 }}>{d.Country}</span></span>,
+      Cur: <span style={{ color:"#718096", fontSize:12 }}>{d.Currency}</span>,
+      "Amount / Cost / Profit": <span style={{ fontSize:12, lineHeight:1.8 }}>
         <span style={{ color:"#e2e8f0", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</span>
-        {d.Cost ? <><br/><span style={{ color:"#718096" }}>Cost: {Number(d.Cost||0).toLocaleString()}</span></> : null}
-        {Number(d.Amount) ? <><br/><span style={{ color:pos?"#10b981":"#ef4444", fontWeight:600 }}>{p.toLocaleString()}{pct?` (${pct}%)`:""}</span></> : null}
+        {d.Cost?<><br/><span style={{ color:"#718096" }}>Cost: {Number(d.Cost||0).toLocaleString()}</span></>:null}
+        {Number(d.Amount)?<><br/><span style={{ color:pos?"#10b981":"#ef4444", fontWeight:600 }}>{p.toLocaleString()}{pct?` (${pct}%)`:""}</span></>:null}
       </span>,
-      Prob: d.Probability,
-      "Next Action": <span style={{ fontSize:11, color:"#a0aec0", maxWidth:140, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.NextAction||"—"}</span>,
-      PDF: d.pdfData ? <button onClick={e=>{e.stopPropagation();setPdfViewer({name:d.pdfName,url:d.pdfData});}} style={{ background:"#667eea22", border:"1px solid #667eea44", color:"#a78bfa", padding:"3px 7px", borderRadius:6, cursor:"pointer", fontSize:11 }}>📄</button> : <span style={{ color:"#4a5568", fontSize:11 }}>—</span>,
+      Prob: <span style={{ color:"#a78bfa", fontSize:12 }}>{d.Probability}</span>,
+      Status: d.NextAction ? <span style={{ background:naColor(d.NextAction)+"22", color:naColor(d.NextAction), border:`1px solid ${naColor(d.NextAction)}44`, padding:"2px 8px", borderRadius:12, fontSize:11, fontWeight:600, whiteSpace:"nowrap" }}>{d.NextAction}</span> : <span style={{ color:"#4a5568", fontSize:11 }}>—</span>,
+      "Follow-up": d.FollowUpDate ? <span style={{ color:isOverdue?"#ef4444":"#f59e0b", fontWeight:isOverdue?700:400, fontSize:12, whiteSpace:"nowrap" }}>{isOverdue?"⚠️ ":""}{d.FollowUpDate}</span> : <span style={{ color:"#4a5568", fontSize:11 }}>—</span>,
+      PDF: (() => {
+        const url = d.pdfUrl || d.pdfData; // support both storage URL and legacy base64
+        return url
+          ? <button onClick={e=>{e.stopPropagation();setPdfViewer({name:d.pdfName,url});}} style={{ background:"#667eea22", border:"1px solid #667eea44", color:"#a78bfa", padding:"3px 7px", borderRadius:6, cursor:"pointer", fontSize:11 }}>📄</button>
+          : <span style={{ color:"#4a5568", fontSize:11 }}>—</span>;
+      })(),
       _canEdit: isSuper||d._owner===user.name,
     };
   });
 
+  // Sort key map — maps header label → raw sort field
+  const sortKeyMap = {
+    "Date":"_sortDate", "Client":"_sortClient", "Location":"_sortLocation",
+    "Amount / Cost / Profit":"_sortAmount", "Status":"_sortStatus", "Follow-up":"_sortFollowUp",
+  };
+
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfFile, setPdfFile] = useState(null); // the actual File object for new uploads
+
+  async function handlePdf(e) {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.type !== "application/pdf") return alert("Please select a PDF file");
+    if (file.size > 20 * 1024 * 1024) return alert("PDF must be under 20MB");
+    // Preview locally while user fills form, upload on save
+    setPdfFile(file);
+    fv("pdfName", file.name);
+    fv("pdfData", ""); // clear old base64 if any
+  }
+
   async function save() {
     if (!form.Client) return alert("Please enter client name");
     if (!form.Amount) return alert("Please enter amount");
-    const f = {...form, _owner:form._owner||user.name, Sales:form.Sales||user.name};
+    let f = { ...form, _owner: form._owner || user.name, Sales: form.Sales || user.name };
+
+    // Upload new PDF to Cloudinary if one was selected
+    if (pdfFile) {
+      if (!CLOUDINARY_CONFIGURED) {
+        return alert("⚠️ Cloudinary not set up yet.\n\nPlease follow setup instructions in CLOUDINARY_SETUP.md\nFor now your PDF will remain as-is.");
+      }
+      setPdfUploading(true);
+      try {
+        const { url, publicId, name } = await uploadPdfToCloudinary(pdfFile);
+        f = { ...f, pdfUrl: url, pdfStoragePath: publicId, pdfName: name, pdfData: "" };
+      } catch (err) {
+        setPdfUploading(false);
+        return alert("PDF upload failed: " + err.message);
+      }
+      setPdfUploading(false);
+    }
+
+    // If user cleared the PDF
+    if (!pdfFile && !f.pdfData && !f.pdfUrl && editItem?.pdfStoragePath) {
+      await deletePdfFromStorage(editItem.pdfStoragePath);
+      f = { ...f, pdfStoragePath: "", pdfUrl: "", pdfName: "" };
+    }
+
     if (editItem) await onUpdate(editItem._id, f);
-    else { const {_id,...c}=f; await onAdd(c); }
+    else { const { _id, ...c } = f; await onAdd(c); }
+    setPdfFile(null);
     setModal(false);
   }
-  async function del(i) { if (confirm("Delete this record?")) await onDelete(filtered[i]._id); }
-  function handlePdf(e) {
-    const file=e.target.files[0]; if (!file) return;
-    if (file.type!=="application/pdf") return alert("Please select a PDF file");
-    if (file.size>10*1024*1024) return alert("PDF must be under 10MB");
-    const r=new FileReader(); r.onload=ev=>{fv("pdfData",ev.target.result);fv("pdfName",file.name);}; r.readAsDataURL(file);
-  }
 
-  // Client Summary Modal data
+  // Client Summary Modal
   const summaryDeals = clientSummary ? data.filter(d => d.Client === clientSummary) : [];
   const summaryOrders = summaryDeals.filter(d => d.Stage === "Order");
   const summaryPending = summaryDeals.filter(d => d.Stage !== "Order");
   const summaryTotalOrdered = summaryOrders.reduce((s,d)=>s+Number(d.Amount||0),0);
   const summaryTotalPending = summaryPending.reduce((s,d)=>s+Number(d.Amount||0),0);
+
+  async function del(i) {
+    if (!confirm("Delete this record?")) return;
+    const item = filtered[i];
+    if (item?.pdfStoragePath) await deletePdfFromStorage(item.pdfStoragePath);
+    await onDelete(item._id);
+  }
+
+  function openModal(item=null) {
+    if (item) { setForm({...item}); setClientSearch(item.Client||""); }
+    else { setForm(empty); setClientSearch(""); }
+    setPdfFile(null);
+    setEditItem(item); setModal(true);
+  }
 
   return (
     <div>
@@ -553,11 +693,14 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
         </div>
       )}
 
+      <FollowUpBanner pipeline={data} user={user} />
+      {isSuper && <PdfMigrationTool pipeline={data} />}
+
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
         <div style={{ color:"#a0aec0", fontSize:14 }}>
           <b style={{ color:"#e2e8f0" }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} records &nbsp;
           <span style={{ color:"#10b981", fontSize:13 }}>Total: {filtered.reduce((s,d)=>s+Number(d.Amount||0),0).toLocaleString()}</span>
-          <span style={{ color:"#718096", fontSize:12, marginLeft:8 }}>· Click 📊 on any client to see full history</span>
+          <span style={{ color:"#718096", fontSize:12, marginLeft:8 }}>· Click 📊 for client history · Click headers to sort</span>
         </div>
         <div style={{ display:"flex", gap:8 }}>
           <Btn onClick={()=>exportCSV(filtered.map(d=>({...d,Profit:Number(d.Amount||0)-Number(d.Cost||0)})),"Pipeline_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
@@ -566,8 +709,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
-      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序</div>
-      <SortableTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Date" sortDesc={true} />
+      <SortableTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Date" sortDesc={true} sortKeyMap={sortKeyMap} />
 
       {modal && <Modal title={editItem?"Edit Deal":"New Deal 新增报价"} onClose={()=>setModal(false)}>
         {/* Client with autocomplete */}
@@ -614,20 +756,56 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
             <span style={{ color:pr.pos?"#10b981":"#ef4444", fontWeight:700, fontSize:16 }}>{pr.p.toLocaleString()} {form.Currency}{pr.pct?` (${pr.pct}%)`:""}</span>
           </div>
         </div>}
-        <Field label="Next Action 下一步行动"><input style={IS} value={form.NextAction||""} onChange={e=>fv("NextAction",e.target.value)} placeholder="e.g. 2026-03-15 Send revised quote" /></Field>
+        <Field label="Next Action 下一步行动 *">
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <div>
+              <div style={{ color:"#718096", fontSize:11, marginBottom:5 }}>Status 当前状态</div>
+              <select style={SS} value={form.NextAction||""} onChange={e=>fv("NextAction",e.target.value)}>
+                <option value="">-- Select --</option>
+                {NEXT_ACTION_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ color:"#718096", fontSize:11, marginBottom:5 }}>🔔 Follow-up Date 追踪日期</div>
+              <input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.FollowUpDate||""} onChange={e=>fv("FollowUpDate",e.target.value)} />
+              {form.FollowUpDate && <div style={{ fontSize:11, color:"#f59e0b", marginTop:4 }}>⏰ Reminder set for {form.FollowUpDate}</div>}
+            </div>
+          </div>
+        </Field>
         <Field label="Notes 备注"><textarea style={{...IS,resize:"vertical",minHeight:60}} value={form.Notes||""} onChange={e=>fv("Notes",e.target.value)} /></Field>
         <div style={{ marginBottom:16 }}>
-          <label style={{ display:"block", color:"#a0aec0", fontSize:13, marginBottom:6, fontWeight:500 }}>Quotation PDF（max 10MB）报价单</label>
-          {form.pdfData
-            ? <div style={{ display:"flex", alignItems:"center", gap:10, background:"#0f1420", border:"1px solid #2d3748", borderRadius:8, padding:"10px 14px" }}>
-                <span style={{ color:"#a78bfa", fontSize:13 }}>📄 {form.pdfName}</span>
-                <button onClick={()=>{fv("pdfData","");fv("pdfName","");}} style={{ marginLeft:"auto", background:"#3d1515", border:"none", color:"#fc8181", padding:"3px 10px", borderRadius:6, cursor:"pointer", fontSize:12 }}>Remove</button>
+          <label style={{ display:"block", color:"#a0aec0", fontSize:13, marginBottom:6, fontWeight:500 }}>
+            Quotation PDF（max 20MB）报价单
+            {(form.pdfData && !form.pdfUrl) && <span style={{ marginLeft:8, background:"#f59e0b22", color:"#f59e0b", fontSize:11, padding:"1px 8px", borderRadius:8 }}>Legacy format – will upgrade on save</span>}
+          </label>
+          {pdfFile ? (
+            // New file selected, not yet uploaded
+            <div style={{ display:"flex", alignItems:"center", gap:10, background:"#0d2618", border:"1px solid #10b98144", borderRadius:8, padding:"10px 14px" }}>
+              <span style={{ color:"#10b981", fontSize:13 }}>📎 {pdfFile.name} <span style={{ color:"#718096", fontSize:11 }}>({(pdfFile.size/1024/1024).toFixed(1)}MB — will upload on save)</span></span>
+              <button onClick={()=>setPdfFile(null)} style={{ marginLeft:"auto", background:"#3d1515", border:"none", color:"#fc8181", padding:"3px 10px", borderRadius:6, cursor:"pointer", fontSize:12 }}>Remove</button>
+            </div>
+          ) : (form.pdfUrl || form.pdfData) ? (
+            // Existing PDF (Storage URL or legacy base64)
+            <div style={{ display:"flex", alignItems:"center", gap:10, background:"#0f1420", border:"1px solid #2d3748", borderRadius:8, padding:"10px 14px" }}>
+              <span style={{ color:"#a78bfa", fontSize:13 }}>📄 {form.pdfName || "Existing PDF"}</span>
+              {form.pdfUrl && <a href={form.pdfUrl} target="_blank" rel="noreferrer" style={{ color:"#60a5fa", fontSize:12, marginLeft:4 }}>View ↗</a>}
+              <div style={{ marginLeft:"auto", display:"flex", gap:8 }}>
+                <label style={{ background:"#2d3748", color:"#a0aec0", padding:"3px 10px", borderRadius:6, cursor:"pointer", fontSize:12 }}>
+                  Replace
+                  <input type="file" accept=".pdf" onChange={handlePdf} style={{ display:"none" }} />
+                </label>
+                <button onClick={()=>{fv("pdfData","");fv("pdfUrl","");fv("pdfStoragePath","");fv("pdfName","");}} style={{ background:"#3d1515", border:"none", color:"#fc8181", padding:"3px 10px", borderRadius:6, cursor:"pointer", fontSize:12 }}>Remove</button>
               </div>
-            : <label style={{ display:"flex", alignItems:"center", gap:10, background:"#0f1420", border:"2px dashed #2d3748", borderRadius:8, padding:14, cursor:"pointer" }}>
-                <span style={{ fontSize:22 }}>📎</span>
-                <span style={{ color:"#718096", fontSize:13 }}>Click to upload PDF quotation</span>
-                <input type="file" accept=".pdf" onChange={handlePdf} style={{ display:"none" }} />
-              </label>}
+            </div>
+          ) : (
+            // No PDF
+            <label style={{ display:"flex", alignItems:"center", gap:10, background:"#0f1420", border:"2px dashed #2d3748", borderRadius:8, padding:14, cursor:"pointer" }}>
+              <span style={{ fontSize:22 }}>📎</span>
+              <span style={{ color:"#718096", fontSize:13 }}>Click to upload PDF quotation (stored in Firebase Storage)</span>
+              <input type="file" accept=".pdf" onChange={handlePdf} style={{ display:"none" }} />
+            </label>
+          )}
+          {pdfUploading && <div style={{ color:"#f59e0b", fontSize:12, marginTop:6 }}>⏳ Uploading PDF to Firebase Storage...</div>}
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
           <Btn onClick={()=>setModal(false)} style={{ background:"#2d3748", color:"#a0aec0", padding:"10px 20px" }}>Cancel</Btn>
@@ -638,27 +816,111 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
   );
 }
 
+// ─── PDF MIGRATION TOOL (Admin only) ─────────────────────────────────────────
+function PdfMigrationTool({ pipeline }) {
+  const legacy = pipeline.filter(d => d.pdfData && d.pdfData.startsWith("data:") && !d.pdfUrl);
+  const [migrating, setMigrating] = useState(false);
+  const [progress, setProgress] = useState([]);
+  const [done, setDone] = useState(false);
+
+  // Show setup banner if Cloudinary not configured yet
+  if (!CLOUDINARY_CONFIGURED) {
+    return (
+      <div style={{ background:"linear-gradient(135deg,#1a0a00,#2a1500)", border:"1px solid #ef444444", borderRadius:12, padding:"16px 18px", marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+          <span style={{ fontSize:20 }}>⚙️</span>
+          <span style={{ color:"#ef4444", fontWeight:700, fontSize:14 }}>Cloudinary Setup Required 需要先设置</span>
+        </div>
+        <div style={{ color:"#a0aec0", fontSize:13, lineHeight:1.8 }}>
+          To store PDFs in the cloud (free), please follow these steps:<br/>
+          <b style={{ color:"#e2e8f0" }}>1.</b> Go to <a href="https://cloudinary.com/users/register_free" target="_blank" rel="noreferrer" style={{ color:"#60a5fa" }}>cloudinary.com</a> → Sign up free (no credit card)<br/>
+          <b style={{ color:"#e2e8f0" }}>2.</b> Dashboard → Settings → Upload → Add upload preset → set to <b style={{ color:"#f59e0b" }}>Unsigned</b><br/>
+          <b style={{ color:"#e2e8f0" }}>3.</b> Copy your <b style={{ color:"#f59e0b" }}>Cloud Name</b> and <b style={{ color:"#f59e0b" }}>Upload Preset name</b><br/>
+          <b style={{ color:"#e2e8f0" }}>4.</b> Send them to Claude → Claude will update the 2 lines in App.jsx for you ✅
+        </div>
+        {legacy.length > 0 && <div style={{ color:"#718096", fontSize:12, marginTop:8 }}>({legacy.length} existing PDF{legacy.length>1?"s":""} will be migrated once set up)</div>}
+      </div>
+    );
+  }
+
+  if (legacy.length === 0 && !done) return null;
+
+  async function runMigration() {
+    setMigrating(true);
+    setDone(false);
+    const log = [];
+    for (const rec of legacy) {
+      const entry = { client: rec.Client, status: "⏳", msg: "Uploading to Cloudinary..." };
+      log.push(entry);
+      setProgress([...log]);
+      try {
+        const { url, publicId } = await migrateBase64ToCloudinary(rec.pdfData, rec.pdfName || "document.pdf");
+        const updated = { ...rec, pdfUrl: url, pdfStoragePath: publicId, pdfData: "" };
+        const { _id, ...c } = updated;
+        await fireUpdate("pipeline", rec._id, c);
+        entry.status = "✅"; entry.msg = "Moved to Cloudinary ☁️";
+      } catch (err) {
+        entry.status = "❌"; entry.msg = err.message;
+      }
+      setProgress([...log]);
+    }
+    setMigrating(false);
+    setDone(true);
+  }
+
+  return (
+    <div style={{ background:"linear-gradient(135deg,#1a1500,#2a2000)", border:"1px solid #f59e0b44", borderRadius:12, padding:"16px 18px", marginBottom:20 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:20 }}>☁️</span>
+          <div>
+            <div style={{ color:"#f59e0b", fontWeight:700, fontSize:14 }}>PDF Migration → Cloudinary</div>
+            <div style={{ color:"#718096", fontSize:12, marginTop:2 }}>
+              {done ? "✅ All done! PDFs moved to Cloudinary. Firestore is now much lighter." : `Found ${legacy.length} record(s) with large base64 PDF in Firestore. Click to migrate to Cloudinary (free).`}
+            </div>
+          </div>
+        </div>
+        {!done && (
+          <button onClick={runMigration} disabled={migrating}
+            style={{ background: migrating?"#2d3748":"linear-gradient(135deg,#f59e0b,#d97706)", border:"none", color: migrating?"#718096":"#000", padding:"9px 18px", borderRadius:10, cursor: migrating?"not-allowed":"pointer", fontWeight:700, fontSize:13, whiteSpace:"nowrap" }}>
+            {migrating ? "⏳ Migrating..." : `🚀 Migrate ${legacy.length} PDF${legacy.length>1?"s":""}`}
+          </button>
+        )}
+      </div>
+      {progress.length > 0 && (
+        <div style={{ display:"grid", gap:4, maxHeight:200, overflowY:"auto" }}>
+          {progress.map((p,i) => (
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:"#00000033", borderRadius:6, padding:"6px 10px", fontSize:12 }}>
+              <span>{p.status}</span>
+              <span style={{ color:"#e2e8f0", fontWeight:600 }}>{p.client}</span>
+              <span style={{ color: p.status==="✅"?"#10b981":p.status==="❌"?"#ef4444":"#f59e0b" }}>{p.msg}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── SORTABLE TABLE ───────────────────────────────────────────────────────────
-function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false }) {
+function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={} }) {
   const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
   const [sortDir, setSortDir] = useState(sortDesc ? "desc" : "asc");
   function toggleSort(h) {
     if (sortCol === h) setSortDir(d => d==="asc"?"desc":"asc");
     else { setSortCol(h); setSortDir("asc"); }
   }
-  // Extract sortable string value — handles JSX by falling back to empty
+  function getSortKey(h) { return sortKeyMap[h] || h; }
   function rawVal(row, col) {
-    const v = row[col];
+    const key = getSortKey(col);
+    const v = row[key];
     if (v === null || v === undefined) return "";
     if (typeof v === "string" || typeof v === "number") return String(v);
-    // For React elements (JSX), try to get text from props or return ""
     return typeof v === "object" && v.props ? "" : String(v);
   }
   const sorted = [...rows].sort((a,b) => {
-    // For Date column, use raw Date field for proper sorting
     const va = rawVal(a, sortCol);
     const vb = rawVal(b, sortCol);
-    // numeric sort for days/numbers
     const na = parseFloat(va), nb = parseFloat(vb);
     let cmp;
     if (!isNaN(na) && !isNaN(nb)) cmp = na - nb;
@@ -679,21 +941,23 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
         <tbody>
           {sorted.length === 0
             ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
-            : sorted.map((row, i) => (
+            : sorted.map((row, i) => {
+              const origIdx = rows.findIndex(r => r === row);
+              return (
               <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
                 onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
                 {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:"#cbd5e0", verticalAlign:"middle" }}>
-                  {h==="Status"||h==="Stage" ? <Badge status={row[h]} /> : row[h]}
+                  {(h==="Stage") ? <Badge status={row[h]} /> : row[h]}
                 </td>)}
                 <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
                   {(canEdit ? canEdit(row) : true)
-                    ? <><Btn onClick={()=>onEdit(rows.indexOf(row))} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
-                       <Btn onClick={()=>onDelete(rows.indexOf(row))} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn></>
+                    ? <><Btn onClick={()=>onEdit(origIdx)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
+                       <Btn onClick={()=>onDelete(origIdx)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn></>
                     : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
                 </td>
               </tr>
-            ))}
+            );})}
         </tbody>
       </table>
     </div>
@@ -1622,6 +1886,8 @@ export default function App() {
 
       {/* CONTENT */}
       <div style={{ padding:"20px 24px" }}>
+        {/* Global follow-up reminder — shows on all tabs */}
+        {curTab !== "pipeline" && <FollowUpBanner pipeline={pipeline} user={user} />}
         {curTab==="dashboard" && isSuper && <SalesDashboard pipeline={pipeline} tracking={tracking} clients={clients} reports={reports} />}
         {curTab==="pipeline"  && <Pipeline  data={pipeline} user={user} onAdd={d=>op("pipeline","add",d)} onUpdate={(id,d)=>op("pipeline","update",{...d,_id:id})} onDelete={id=>fireDelete("pipeline",id)} allClients={clients} />}
         {curTab==="tracking"  && <Tracking  data={tracking} user={user} onAdd={d=>op("tracking","add",d)} onUpdate={(id,d)=>op("tracking","update",{...d,_id:id})} onDelete={id=>fireDelete("tracking",id)} />}
