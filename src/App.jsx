@@ -25,12 +25,12 @@ async function uploadPdfToCloudinary(file) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("resource_type", "raw"); // needed for PDF
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`, {
+  // Use 'auto' endpoint — works for all file types including PDF without extra preset config
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
     method: "POST", body: formData
   });
-  if (!res.ok) throw new Error("Upload failed: " + res.statusText);
   const data = await res.json();
+  if (data.error) throw new Error(data.error.message || "Upload failed");
   return { url: data.secure_url, publicId: data.public_id, name: file.name };
 }
 
@@ -510,7 +510,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
       _sortFollowUp: d.FollowUpDate||"",
       _sortStatus: d.NextAction||"",
       // Display cells
-      Date: <span style={{ color:"#a0aec0", fontSize:12, whiteSpace:"nowrap" }}>{d.Date||"—"}</span>,
+      Date: d.Date||"—",
       Client: <span style={{ display:"flex", alignItems:"center", gap:4 }}>
         <span style={{ maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block", color:"#e2e8f0", fontWeight:600 }}>{d.Client}</span>
         <button onClick={e=>{e.stopPropagation();setClientSummary(d.Client);}} style={{ background:"#667eea22", border:"1px solid #667eea44", color:"#a78bfa", padding:"1px 5px", borderRadius:5, cursor:"pointer", fontSize:10, flexShrink:0 }}>📊</button>
@@ -538,6 +538,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
   // Sort key map — maps header label → raw sort field
   const sortKeyMap = {
     "Date":"_sortDate", "Client":"_sortClient", "Location":"_sortLocation",
+    "Cur":"Currency", "Prob":"Probability",
     "Amount / Cost / Profit":"_sortAmount", "Status":"_sortStatus", "Follow-up":"_sortFollowUp",
   };
 
@@ -757,19 +758,21 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
           </div>
         </div>}
         <Field label="Next Action 下一步行动 *">
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          <div style={{ display:"grid", gridTemplateColumns: (form.NextAction==="Completed"||form.NextAction==="Closed – Lost") ? "1fr" : "1fr 1fr", gap:10 }}>
             <div>
               <div style={{ color:"#718096", fontSize:11, marginBottom:5 }}>Status 当前状态</div>
-              <select style={SS} value={form.NextAction||""} onChange={e=>fv("NextAction",e.target.value)}>
+              <select style={SS} value={form.NextAction||""} onChange={e=>{fv("NextAction",e.target.value); if(e.target.value==="Completed"||e.target.value==="Closed – Lost") fv("FollowUpDate","");}}>
                 <option value="">-- Select --</option>
                 {NEXT_ACTION_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
               </select>
             </div>
-            <div>
-              <div style={{ color:"#718096", fontSize:11, marginBottom:5 }}>🔔 Follow-up Date 追踪日期</div>
-              <input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.FollowUpDate||""} onChange={e=>fv("FollowUpDate",e.target.value)} />
-              {form.FollowUpDate && <div style={{ fontSize:11, color:"#f59e0b", marginTop:4 }}>⏰ Reminder set for {form.FollowUpDate}</div>}
-            </div>
+            {(form.NextAction!=="Completed" && form.NextAction!=="Closed – Lost") && (
+              <div>
+                <div style={{ color:"#718096", fontSize:11, marginBottom:5 }}>🔔 Follow-up Date 追踪日期</div>
+                <input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.FollowUpDate||""} onChange={e=>fv("FollowUpDate",e.target.value)} />
+                {form.FollowUpDate && <div style={{ fontSize:11, color:"#f59e0b", marginTop:4 }}>⏰ Reminder set for {form.FollowUpDate}</div>}
+              </div>
+            )}
           </div>
         </Field>
         <Field label="Notes 备注"><textarea style={{...IS,resize:"vertical",minHeight:60}} value={form.Notes||""} onChange={e=>fv("Notes",e.target.value)} /></Field>
