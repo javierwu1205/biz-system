@@ -1130,8 +1130,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                     <span style={{ maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block" }}>{d.Email||"—"}</span>
                     {d.Email && (
-                      <a href={`alimail://mail/compose?to=${encodeURIComponent(d.Email)}`}
-                        onClick={e=>{e.preventDefault();e.stopPropagation();window.open(`https://mail.aliyun.com/alimail/compose?to=${encodeURIComponent(d.Email)}`,"_blank");}}
+                      <a href="#" onClick={e=>{e.preventDefault();e.stopPropagation();window.open(`https://qiye.aliyun.com/alimail/compose?to=${encodeURIComponent(d.Email)}`,"_blank");}}
                         style={{ background:"#1a2a3a", border:"1px solid #3b82f633", color:"#60a5fa", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap", cursor:"pointer" }}>
                         ✉️ Mail
                       </a>
