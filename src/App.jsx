@@ -1751,13 +1751,13 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
   const totalRev = filtered.filter(d=>d.Stage==="Order").reduce((s,d)=>s+Number(d.Amount||0),0);
   const totalForecast = filtered.reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
 
-  // Goals: one doc per person with monthly targets {person, monthly: {amount, orders}}
+  // Goals: one doc per person with yearly targets {person, yearly: {amount, orders}}
   function getGoal(name) { return goals.find(g=>g.person===name) || {}; }
   async function saveGoals() {
     for (const name of SALES_MEMBERS) {
       const amt = parseFloat(goalForm["amt_"+name]||0);
       const existing = goals.find(g=>g.person===name);
-      const data = { person:name, monthly:{ profit:amt } };
+      const data = { person:name, yearly:{ profit:amt } };
       await onGoalSave(existing?._id||null, existing ? {...data,_id:existing._id} : data);
     }
     setGoalsModal(false);
@@ -1771,7 +1771,7 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
     const totalProfit = orders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
     const forecast = filtered.filter(d=>(d.Sales===name||d._owner===name)).reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
     const goal = getGoal(name);
-    const targetProfit = goal.monthly?.profit || 0;
+    const targetProfit = goal.yearly?.profit || 0;
     const pctProfit = targetProfit > 0 ? Math.min(totalProfit/targetProfit*100,100) : null;
     return { name, orders:orders.length, pipe:pipe.length, leads:leads.length, rev, totalProfit, forecast, targetProfit, pctProfit };
   });
@@ -1799,15 +1799,15 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
       {/* Goals Setting Modal */}
       {goalsModal && (
         <Modal title="🎯 Set Monthly Targets 设置月度目标" onClose={()=>setGoalsModal(false)}>
-          <div style={{ marginBottom:12, color:"#a0aec0", fontSize:13 }}>Set monthly revenue & order targets for each sales member.</div>
+          <div style={{ marginBottom:12, color:"#a0aec0", fontSize:13 }}>Set annual profit targets for each sales member. 设置年度利润目标</div>
           <div style={{ display:"grid", gap:10 }}>
             {SALES_MEMBERS.map(name => {
               const g = getGoal(name);
               return (
                 <div key={name} style={{ background:"#0f1420", borderRadius:10, padding:"12px 16px", border:"1px solid #2d3748" }}>
                   <div style={{ color:"#e2e8f0", fontWeight:700, marginBottom:8 }}>👤 {name}</div>
-                  <Field label="Profit Target 利润目标 ($)">
-                    <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.monthly?.profit??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 20000" />
+                  <Field label="Annual Profit Target 年度利润目标 ($)">
+                    <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.yearly?.profit??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 100000" />
                   </Field>
                 </div>
               );
@@ -1905,31 +1905,29 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
 // ─── TEAM LEADERBOARD 业绩目标排行 ────────────────────────────────────────────
 function TeamLeaderboard({ pipeline, goals, user }) {
   const now = new Date();
-  const thisMonth = now.toISOString().slice(0,7); // "2026-03"
+  const thisYear = now.getFullYear().toString(); // "2026"
 
   function getGoal(name) { return goals.find(g=>g.person===name) || {}; }
 
   const leaderboard = SALES_MEMBERS.map(name => {
-    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisMonth));
-    const allOrders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order");
-    const monthProfit = orders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
-    const totalProfit = allOrders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
+    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear));
+    const yearProfit = orders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
     const goal = getGoal(name);
-    const target = goal.monthly?.profit || 0;
-    const pct = target > 0 ? Math.min(monthProfit/target*100,100) : null;
+    const target = goal.yearly?.profit || 0;
+    const pct = target > 0 ? Math.min(yearProfit/target*100,100) : null;
     const isMe = name === user.name;
-    return { name, monthProfit, totalProfit, target, pct, isMe };
-  }).sort((a,b) => b.monthProfit - a.monthProfit);
+    return { name, yearProfit, target, pct, isMe };
+  }).sort((a,b) => b.yearProfit - a.yearProfit);
 
   const medals = ["🥇","🥈","🥉"];
-  const monthLabel = now.toLocaleString("en", { month:"long", year:"numeric" });
+  const yearLabel = now.getFullYear() + " Annual Goals 年度目标";
 
   return (
     <div style={{ maxWidth:700, margin:"0 auto" }}>
       <div style={{ textAlign:"center", marginBottom:28 }}>
         <div style={{ fontSize:36, marginBottom:6 }}>🏆</div>
         <h2 style={{ color:"#e2e8f0", margin:"0 0 4px", fontSize:22, fontWeight:800 }}>Team Profit Goals 业绩目标排行</h2>
-        <div style={{ color:"#4a5568", fontSize:13 }}>{monthLabel} · Updated live 实时更新</div>
+        <div style={{ color:"#4a5568", fontSize:13 }}>{yearLabel} · Updated live 实时更新</div>
       </div>
 
       <div style={{ display:"grid", gap:14 }}>
@@ -1964,7 +1962,7 @@ function TeamLeaderboard({ pipeline, goals, user }) {
                       {hitGoal && <span style={{ background:"#10b98122", color:"#10b981", fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600 }}>✅ Goal Hit!</span>}
                     </div>
                     <div style={{ color:"#4a5568", fontSize:11, marginTop:2 }}>
-                      This month 本月: <span style={{ color:"#10b981", fontWeight:600 }}>${p.monthProfit.toLocaleString()}</span> profit
+                      This year 今年: <span style={{ color:"#10b981", fontWeight:600 }}>${p.yearProfit.toLocaleString()}</span> profit
                     </div>
                   </div>
                 </div>
@@ -1990,7 +1988,7 @@ function TeamLeaderboard({ pipeline, goals, user }) {
                 }}>
                   {barPct > 15 && (
                     <span style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", color:"#fff", fontSize:9, fontWeight:700, whiteSpace:"nowrap" }}>
-                      ${p.monthProfit.toLocaleString()}
+                      ${p.yearProfit.toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -1999,7 +1997,7 @@ function TeamLeaderboard({ pipeline, goals, user }) {
               {/* Motivational message for current user */}
               {p.isMe && p.target > 0 && !hitGoal && (
                 <div style={{ marginTop:8, color:"#718096", fontSize:12, textAlign:"right" }}>
-                  💪 ${(p.target - p.monthProfit).toLocaleString()} more to go this month!
+                  💪 ${(p.target - p.yearProfit).toLocaleString()} more to go this year! 加油！
                 </div>
               )}
             </div>
