@@ -1756,9 +1756,8 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
   async function saveGoals() {
     for (const name of SALES_MEMBERS) {
       const amt = parseFloat(goalForm["amt_"+name]||0);
-      const ord = parseInt(goalForm["ord_"+name]||0);
       const existing = goals.find(g=>g.person===name);
-      const data = { person:name, monthly:{ amount:amt, orders:ord } };
+      const data = { person:name, monthly:{ profit:amt } };
       await onGoalSave(existing?._id||null, existing ? {...data,_id:existing._id} : data);
     }
     setGoalsModal(false);
@@ -1769,13 +1768,12 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
     const pipe   = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage!=="Order");
     const leads  = filteredTrack.filter(d=>(d.Sales===name||d._owner===name));
     const rev    = orders.reduce((s,d)=>s+Number(d.Amount||0),0);
+    const totalProfit = orders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
     const forecast = filtered.filter(d=>(d.Sales===name||d._owner===name)).reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
     const goal = getGoal(name);
-    const targetAmt = goal.monthly?.amount || 0;
-    const targetOrd = goal.monthly?.orders || 0;
-    const pctAmt = targetAmt > 0 ? Math.min(rev/targetAmt*100,100) : null;
-    const pctOrd = targetOrd > 0 ? Math.min(orders.length/targetOrd*100,100) : null;
-    return { name, orders:orders.length, pipe:pipe.length, leads:leads.length, rev, forecast, targetAmt, targetOrd, pctAmt, pctOrd };
+    const targetProfit = goal.monthly?.profit || 0;
+    const pctProfit = targetProfit > 0 ? Math.min(totalProfit/targetProfit*100,100) : null;
+    return { name, orders:orders.length, pipe:pipe.length, leads:leads.length, rev, totalProfit, forecast, targetProfit, pctProfit };
   });
   const maxRev = Math.max(...byPerson.map(p=>p.rev),1);
 
@@ -1808,14 +1806,9 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
               return (
                 <div key={name} style={{ background:"#0f1420", borderRadius:10, padding:"12px 16px", border:"1px solid #2d3748" }}>
                   <div style={{ color:"#e2e8f0", fontWeight:700, marginBottom:8 }}>👤 {name}</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                    <Field label="Revenue Target 收入目标 ($)">
-                      <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.monthly?.amount??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 50000" />
-                    </Field>
-                    <Field label="Orders Target 成交目标 (deals)">
-                      <input style={IS} type="number" defaultValue={goalForm["ord_"+name]??g.monthly?.orders??""} onChange={e=>setGoalForm(p=>({...p,["ord_"+name]:e.target.value}))} placeholder="e.g. 5" />
-                    </Field>
-                  </div>
+                  <Field label="Profit Target 利润目标 ($)">
+                    <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.monthly?.profit??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 20000" />
+                  </Field>
                 </div>
               );
             })}
@@ -1871,28 +1864,19 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
                 ))}
               </div>
             </div>
-            {/* Revenue progress bar vs target */}
-            <div style={{ marginBottom: p.pctOrd!==null ? 4 : 0 }}>
+            {/* Profit progress bar vs target */}
+            <div>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                <span style={{ color:"#4a5568", fontSize:10 }}>Revenue {p.pctAmt!==null ? `${Math.round(p.pctAmt)}% of $${p.targetAmt.toLocaleString()} target` : "— no target set"}</span>
-                {p.pctAmt!==null && <span style={{ color:p.pctAmt>=100?"#10b981":"#f59e0b", fontSize:10, fontWeight:700 }}>{p.pctAmt>=100?"✅ Goal Hit!":""}</span>}
+                <span style={{ color:"#4a5568", fontSize:10 }}>
+                  Profit 利润: ${p.totalProfit.toLocaleString()}
+                  {p.pctProfit!==null ? ` — ${Math.round(p.pctProfit)}% of $${p.targetProfit.toLocaleString()} target` : " — no target set"}
+                </span>
+                {p.pctProfit>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
               </div>
               <div style={{ background:"#0f1420", borderRadius:6, height:6 }}>
-                <div style={{ height:"100%", width:(p.pctAmt!==null?p.pctAmt:Math.min(p.rev/maxRev*100,100))+"%", background:p.pctAmt!==null?(p.pctAmt>=100?"linear-gradient(90deg,#10b981,#34d399)":"linear-gradient(90deg,#667eea,#f59e0b)"):"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.6s" }} />
+                <div style={{ height:"100%", width:(p.pctProfit!==null?p.pctProfit:Math.min(p.rev/maxRev*100,100))+"%", background:p.pctProfit!==null?(p.pctProfit>=100?"linear-gradient(90deg,#10b981,#34d399)":"linear-gradient(90deg,#667eea,#f59e0b)"):"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.6s" }} />
               </div>
             </div>
-            {/* Orders progress bar vs target */}
-            {p.pctOrd!==null && (
-              <div>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3, marginTop:4 }}>
-                  <span style={{ color:"#4a5568", fontSize:10 }}>Orders {p.orders}/{p.targetOrd} deals — {Math.round(p.pctOrd)}%</span>
-                  {p.pctOrd>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
-                </div>
-                <div style={{ background:"#0f1420", borderRadius:6, height:4 }}>
-                  <div style={{ height:"100%", width:p.pctOrd+"%", background:"linear-gradient(90deg,#3b82f6,#60a5fa)", borderRadius:6, transition:"width 0.6s" }} />
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>
@@ -1913,6 +1897,118 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ─── TEAM LEADERBOARD 业绩目标排行 ────────────────────────────────────────────
+function TeamLeaderboard({ pipeline, goals, user }) {
+  const now = new Date();
+  const thisMonth = now.toISOString().slice(0,7); // "2026-03"
+
+  function getGoal(name) { return goals.find(g=>g.person===name) || {}; }
+
+  const leaderboard = SALES_MEMBERS.map(name => {
+    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisMonth));
+    const allOrders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order");
+    const monthProfit = orders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
+    const totalProfit = allOrders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
+    const goal = getGoal(name);
+    const target = goal.monthly?.profit || 0;
+    const pct = target > 0 ? Math.min(monthProfit/target*100,100) : null;
+    const isMe = name === user.name;
+    return { name, monthProfit, totalProfit, target, pct, isMe };
+  }).sort((a,b) => b.monthProfit - a.monthProfit);
+
+  const medals = ["🥇","🥈","🥉"];
+  const monthLabel = now.toLocaleString("en", { month:"long", year:"numeric" });
+
+  return (
+    <div style={{ maxWidth:700, margin:"0 auto" }}>
+      <div style={{ textAlign:"center", marginBottom:28 }}>
+        <div style={{ fontSize:36, marginBottom:6 }}>🏆</div>
+        <h2 style={{ color:"#e2e8f0", margin:"0 0 4px", fontSize:22, fontWeight:800 }}>Team Profit Goals 业绩目标排行</h2>
+        <div style={{ color:"#4a5568", fontSize:13 }}>{monthLabel} · Updated live 实时更新</div>
+      </div>
+
+      <div style={{ display:"grid", gap:14 }}>
+        {leaderboard.map((p, i) => {
+          const barPct = p.pct !== null ? p.pct : 0;
+          const hitGoal = p.pct !== null && p.pct >= 100;
+          const barColor = hitGoal
+            ? "linear-gradient(90deg,#10b981,#34d399)"
+            : p.isMe
+            ? "linear-gradient(90deg,#667eea,#a78bfa)"
+            : "linear-gradient(90deg,#3b82f6,#60a5fa)";
+          const borderColor = p.isMe ? "#a78bfa55" : hitGoal ? "#10b98133" : "#2d3748";
+
+          return (
+            <div key={p.name} style={{
+              background: p.isMe ? "#1a1830" : "#1a1f2e",
+              border: `2px solid ${borderColor}`,
+              borderRadius:14, padding:"18px 22px",
+              boxShadow: p.isMe ? "0 0 20px #a78bfa22" : "none",
+              transition:"all 0.2s"
+            }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                {/* Left: rank + name */}
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  <span style={{ fontSize:24, width:32, textAlign:"center" }}>
+                    {medals[i] || <span style={{ color:"#4a5568", fontSize:18, fontWeight:700 }}>#{i+1}</span>}
+                  </span>
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ color: p.isMe?"#a78bfa":"#e2e8f0", fontWeight:700, fontSize:16 }}>{p.name}</span>
+                      {p.isMe && <span style={{ background:"#a78bfa22", color:"#a78bfa", fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600 }}>YOU 你</span>}
+                      {hitGoal && <span style={{ background:"#10b98122", color:"#10b981", fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600 }}>✅ Goal Hit!</span>}
+                    </div>
+                    <div style={{ color:"#4a5568", fontSize:11, marginTop:2 }}>
+                      This month 本月: <span style={{ color:"#10b981", fontWeight:600 }}>${p.monthProfit.toLocaleString()}</span> profit
+                    </div>
+                  </div>
+                </div>
+                {/* Right: target */}
+                <div style={{ textAlign:"right" }}>
+                  {p.target > 0
+                    ? <><div style={{ color:hitGoal?"#10b981":"#f59e0b", fontWeight:800, fontSize:18 }}>{p.pct!==null?Math.round(p.pct):0}%</div>
+                       <div style={{ color:"#4a5568", fontSize:11 }}>of ${p.target.toLocaleString()} target</div></>
+                    : <div style={{ color:"#4a5568", fontSize:12 }}>No target set</div>
+                  }
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div style={{ background:"#0f1420", borderRadius:8, height:10, overflow:"hidden" }}>
+                <div style={{
+                  height:"100%",
+                  width: barPct + "%",
+                  background: barColor,
+                  borderRadius:8,
+                  transition:"width 0.8s cubic-bezier(.4,0,.2,1)",
+                  position:"relative"
+                }}>
+                  {barPct > 15 && (
+                    <span style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", color:"#fff", fontSize:9, fontWeight:700, whiteSpace:"nowrap" }}>
+                      ${p.monthProfit.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Motivational message for current user */}
+              {p.isMe && p.target > 0 && !hitGoal && (
+                <div style={{ marginTop:8, color:"#718096", fontSize:12, textAlign:"right" }}>
+                  💪 ${(p.target - p.monthProfit).toLocaleString()} more to go this month!
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ textAlign:"center", marginTop:20, color:"#2d3748", fontSize:12 }}>
+        Targets are set by Admin · 目标由管理员设定
       </div>
     </div>
   );
@@ -1942,6 +2038,7 @@ export default function App() {
     { key:"clients",   label:"Clients 客户管理",              icon:"👥" },
     { key:"reports",   label:"Reports 工作汇报",              icon:"📝" },
     { key:"health",    label:"Client Health 客户健康度",      icon:"❤️" },
+    { key:"leaderboard", label:"Team Goals 业绩目标",        icon:"🏆" },
   ];
   const ADMIN_TABS = [
     { key:"dashboard", label:"Sales Dashboard 总监主页",     icon:"📊" },
@@ -1951,6 +2048,7 @@ export default function App() {
     { key:"reports",   label:"Reports 工作汇报",              icon:"📝" },
     { key:"activity",  label:"Weekly Activity 行为管理",      icon:"📈" },
     { key:"health",    label:"Client Health 客户健康度",      icon:"❤️" },
+    { key:"leaderboard", label:"Team Goals 业绩目标",        icon:"🏆" },
   ];
   const tabs = isSuper ? ADMIN_TABS : MEMBER_TABS;
   const curTab = tabs[tab]?.key || tabs[0]?.key;
@@ -2014,6 +2112,7 @@ export default function App() {
         {curTab==="reports"   && <Reports   data={reports} user={user} onAdd={d=>op("reports","add",d)} onUpdate={(id,d)=>op("reports","update",{...d,_id:id})} onDelete={id=>fireDelete("reports",id)} />}
         {curTab==="activity"  && isSuper && <WeeklyActivity pipeline={pipeline} tracking={tracking} reports={reports} />}
         {curTab==="health"    && <ClientHealth pipeline={pipeline} clients={clients} user={user} />}
+        {curTab==="leaderboard" && <TeamLeaderboard pipeline={pipeline} goals={goals} user={user} />}
       </div>
     </div>
   );
