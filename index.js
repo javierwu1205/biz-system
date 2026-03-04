@@ -814,29 +814,39 @@ function PdfMigrationTool({ pipeline }) { return null; }
 function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={} }) {
   const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
   const [sortDir, setSortDir] = useState(sortDesc ? "desc" : "asc");
+
   function toggleSort(h) {
     if (sortCol === h) setSortDir(d => d==="asc"?"desc":"asc");
     else { setSortCol(h); setSortDir("asc"); }
   }
-  function getSortKey(h) { return sortKeyMap[h] || h; }
-  function rawVal(row, col) {
-    const key = getSortKey(col);
+
+  // Get raw sortable value from a row for a given column header
+  function getSortVal(row, col) {
+    const key = (sortKeyMap && sortKeyMap[col]) ? sortKeyMap[col] : col;
     const v = row[key];
     if (v === null || v === undefined) return "";
-    if (typeof v === "string" || typeof v === "number") return String(v);
-    return typeof v === "object" && v.props ? "" : String(v);
+    // If it's a React element (JSX), return empty string — not sortable directly
+    if (typeof v === "object" && v !== null && v.$$typeof) return "";
+    return String(v);
   }
-  const sorted = [...rows].sort((a,b) => {
-    const va = rawVal(a, sortCol);
-    const vb = rawVal(b, sortCol);
-    // Date format YYYY-MM-DD: string compare works perfectly, don't parseFloat
-    const isDate = /^\d{4}-\d{2}-\d{2}$/.test(va) || /^\d{4}-\d{2}-\d{2}$/.test(vb);
-    const na = parseFloat(va), nb = parseFloat(vb);
+
+  // Build sorted indices so we never mutate original rows
+  const sortedIndices = [...rows.keys()].sort((ai, bi) => {
+    const va = getSortVal(rows[ai], sortCol);
+    const vb = getSortVal(rows[bi], sortCol);
+    // Date YYYY-MM-DD: pure string compare is correct
+    const isDate = /^\d{4}-\d{2}-\d{2}/.test(va) && /^\d{4}-\d{2}-\d{2}/.test(vb);
     let cmp;
-    if (!isDate && !isNaN(na) && !isNaN(nb)) cmp = na - nb;
-    else cmp = va.localeCompare(vb);
-    return sortDir==="asc" ? cmp : -cmp;
+    if (isDate) {
+      cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    } else {
+      const na = Number(va), nb = Number(vb);
+      if (!isNaN(na) && !isNaN(nb) && va !== "" && vb !== "") cmp = na - nb;
+      else cmp = va.localeCompare(vb, undefined, { sensitivity: "base" });
+    }
+    return sortDir === "asc" ? cmp : -cmp;
   });
+
   return (
     <div style={{ overflowX:"auto" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, tableLayout:"auto" }}>
@@ -849,11 +859,11 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
           <th style={{ padding:"10px 10px", color:"#718096", fontSize:11, borderBottom:"1px solid #2d3748", width:90 }}>Actions</th>
         </tr></thead>
         <tbody>
-          {sorted.length === 0
+          {sortedIndices.length === 0
             ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
-            : sorted.map((row, i) => {
-              const origIdx = rows.findIndex(r => r === row);
-              const rowKey = row._id || row._ts || i;
+            : sortedIndices.map(origIdx => {
+              const row = rows[origIdx];
+              const rowKey = row._id || row._ts || origIdx;
               return (
               <tr key={rowKey} style={{ borderBottom:"1px solid #161b27" }}
                 onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
