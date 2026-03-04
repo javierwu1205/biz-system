@@ -16,8 +16,8 @@ const db = getFirestore(firebaseApp);
 // ─── CLOUDINARY PDF STORAGE (Free, 25GB, no credit card) ─────────────────────
 // Sign up free at https://cloudinary.com → get your cloud_name and upload_preset
 // Replace these two values with yours:
-const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUD_NAME";   // e.g. "dxyz1234"
-const CLOUDINARY_UPLOAD_PRESET = "YOUR_UPLOAD_PRESET"; // e.g. "flowcolour_pdf"
+const CLOUDINARY_CLOUD_NAME = "dsyjbeg1";
+const CLOUDINARY_UPLOAD_PRESET = "flowcolour_pdf";
 const CLOUDINARY_CONFIGURED = CLOUDINARY_CLOUD_NAME !== "YOUR_CLOUD_NAME";
 
 async function uploadPdfToCloudinary(file) {
