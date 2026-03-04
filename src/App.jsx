@@ -21,17 +21,29 @@ const CLOUDINARY_UPLOAD_PRESET = "flowcolour_pdf";
 const CLOUDINARY_CONFIGURED = CLOUDINARY_CLOUD_NAME !== "YOUR_CLOUD_NAME";
 
 async function uploadPdfToCloudinary(file) {
-  if (!CLOUDINARY_CONFIGURED) throw new Error("Cloudinary not configured yet. See setup instructions.");
+  if (!CLOUDINARY_CONFIGURED) throw new Error("Cloudinary not configured yet.");
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  // Use 'auto' endpoint — works for all file types including PDF without extra preset config
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+  // Try image endpoint first (works for PDF on free plan), fallback to raw
+  let res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
     method: "POST", body: formData
   });
-  const data = await res.json();
+  let data = await res.json();
+  // If image endpoint fails, try raw endpoint
+  if (data.error) {
+    const formData2 = new FormData();
+    formData2.append("file", file);
+    formData2.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`, {
+      method: "POST", body: formData2
+    });
+    data = await res.json();
+  }
   if (data.error) throw new Error(data.error.message || "Upload failed");
-  return { url: data.secure_url, publicId: data.public_id, name: file.name };
+  // For PDF uploaded as image, use fl_attachment flag for proper download
+  const url = data.secure_url;
+  return { url, publicId: data.public_id, name: file.name };
 }
 
 async function migrateBase64ToCloudinary(base64Data, fileName) {
