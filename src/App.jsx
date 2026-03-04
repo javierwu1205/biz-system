@@ -354,7 +354,8 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
   const filtered = applyFilters(visible, filters);
   const exportCols = ["Date","Client","Region","Country","Source","Product","Status","Sales","Notes"];
   const headers = ["Date","Client","Region","Country","Source","Product","Status","Sales"];
-  const rows = filtered.map(d=>({...d, _canEdit:isSuper||d._owner===user.name}));
+  const rows = filtered.map(d=>({...d, _sortDate: typeof d.Date==="string"?d.Date:String(d.Date||""), _canEdit:isSuper||d._owner===user.name}));
+  const trackingSortKeyMap = {"Date":"_sortDate"};
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
   function openEdit(i) { const item = filtered[i]; setForm({...item}); setEditItem(item); setModal(true); }
   async function save() {
@@ -377,7 +378,7 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
       <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序</div>
-      <SortableTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Date" sortDesc={true} />
+      <SortableTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Date" sortDesc={true} sortKeyMap={trackingSortKeyMap} />
       {modal && <Modal title={editItem?"Edit Tracking":"New Tracking Record"} onClose={()=>setModal(false)}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Field label="Date 日期"><input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.Date} onChange={e=>fv("Date",e.target.value)} /></Field>
@@ -484,17 +485,18 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
   const rows = filtered.map(d => {
     const {p,pct,pos} = profit(d.Amount, d.Cost);
     const isOverdue = d.FollowUpDate && d.FollowUpDate <= today && d.Stage!=="Order" && d.NextAction!=="Completed" && d.NextAction!=="Closed – Lost";
+    const dateStr = typeof d.Date === "string" ? d.Date : (d.Date?.toDate ? d.Date.toDate().toISOString().slice(0,10) : String(d.Date||""));
     return {
       ...d,
       // Raw sort keys (used by SortableTable rawVal)
-      _sortDate: d.Date||"",
+      _sortDate: dateStr,
       _sortClient: d.Client||"",
       _sortLocation: (d.Country||""),
       _sortAmount: Number(d.Amount||0),
       _sortFollowUp: d.FollowUpDate||"",
       _sortStatus: d.NextAction||"",
       // Display cells
-      Date: d.Date||"—",
+      Date: dateStr||"—",
       Client: <span style={{ display:"flex", alignItems:"center", gap:4 }}>
         <span style={{ maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block", color:"#e2e8f0", fontWeight:600 }}>{d.Client}</span>
         <button onClick={e=>{e.stopPropagation();setClientSummary(d.Client);}} style={{ background:"#667eea22", border:"1px solid #667eea44", color:"#a78bfa", padding:"1px 5px", borderRadius:5, cursor:"pointer", fontSize:10, flexShrink:0 }}>📊</button>
@@ -521,7 +523,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
 
   // Sort key map — maps header label → raw sort field
   const sortKeyMap = {
-    "Date":"Date", "Client":"_sortClient", "Location":"_sortLocation",
+    "Date":"_sortDate", "Client":"_sortClient", "Location":"_sortLocation",
     "Cur":"Currency", "Prob":"Probability",
     "Amount / Cost / Profit":"_sortAmount", "Status":"_sortStatus", "Follow-up":"_sortFollowUp",
   };
@@ -814,27 +816,39 @@ function PdfMigrationTool({ pipeline }) { return null; }
 function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={} }) {
   const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
   const [sortDir, setSortDir] = useState(sortDesc ? "desc" : "asc");
+
   function toggleSort(h) {
     if (sortCol === h) setSortDir(d => d==="asc"?"desc":"asc");
     else { setSortCol(h); setSortDir("asc"); }
   }
-  function getSortKey(h) { return sortKeyMap[h] || h; }
-  function rawVal(row, col) {
-    const key = getSortKey(col);
+
+  // Get raw sortable value from a row for a given column header
+  function getSortVal(row, col) {
+    const key = (sortKeyMap && sortKeyMap[col]) ? sortKeyMap[col] : col;
     const v = row[key];
     if (v === null || v === undefined) return "";
-    if (typeof v === "string" || typeof v === "number") return String(v);
-    return typeof v === "object" && v.props ? "" : String(v);
+    // If it's a React element (JSX), return empty string — not sortable directly
+    if (typeof v === "object" && v !== null && v.$$typeof) return "";
+    return String(v);
   }
-  const sorted = [...rows].sort((a,b) => {
-    const va = rawVal(a, sortCol);
-    const vb = rawVal(b, sortCol);
-    const na = parseFloat(va), nb = parseFloat(vb);
+
+  // Build sorted indices so we never mutate original rows
+  const sortedIndices = [...rows.keys()].sort((ai, bi) => {
+    const va = getSortVal(rows[ai], sortCol);
+    const vb = getSortVal(rows[bi], sortCol);
+    // Date YYYY-MM-DD: pure string compare is correct
+    const isDate = /^\d{4}-\d{2}-\d{2}/.test(va) && /^\d{4}-\d{2}-\d{2}/.test(vb);
     let cmp;
-    if (!isNaN(na) && !isNaN(nb)) cmp = na - nb;
-    else cmp = va.localeCompare(vb);
-    return sortDir==="asc" ? cmp : -cmp;
+    if (isDate) {
+      cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    } else {
+      const na = Number(va), nb = Number(vb);
+      if (!isNaN(na) && !isNaN(nb) && va !== "" && vb !== "") cmp = na - nb;
+      else cmp = va.localeCompare(vb, undefined, { sensitivity: "base" });
+    }
+    return sortDir === "asc" ? cmp : -cmp;
   });
+
   return (
     <div style={{ overflowX:"auto" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, tableLayout:"auto" }}>
@@ -847,12 +861,13 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
           <th style={{ padding:"10px 10px", color:"#718096", fontSize:11, borderBottom:"1px solid #2d3748", width:90 }}>Actions</th>
         </tr></thead>
         <tbody>
-          {sorted.length === 0
+          {sortedIndices.length === 0
             ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
-            : sorted.map((row, i) => {
-              const origIdx = rows.findIndex(r => r === row);
+            : sortedIndices.map(origIdx => {
+              const row = rows[origIdx];
+              const rowKey = row._id || row._ts || origIdx;
               return (
-              <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
+              <tr key={rowKey} style={{ borderBottom:"1px solid #161b27" }}
                 onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
                 {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:"#cbd5e0", verticalAlign:"middle" }}>
