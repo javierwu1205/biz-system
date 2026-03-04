@@ -521,7 +521,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
 
   // Sort key map — maps header label → raw sort field
   const sortKeyMap = {
-    "Date":"_sortDate", "Client":"_sortClient", "Location":"_sortLocation",
+    "Date":"Date", "Client":"_sortClient", "Location":"_sortLocation",
     "Cur":"Currency", "Prob":"Probability",
     "Amount / Cost / Profit":"_sortAmount", "Status":"_sortStatus", "Follow-up":"_sortFollowUp",
   };
