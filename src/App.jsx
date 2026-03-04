@@ -13,32 +13,33 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
-// ─── CLOUDINARY PDF STORAGE (Free, 25GB, no credit card) ─────────────────────
-// Sign up free at https://cloudinary.com → get your cloud_name and upload_preset
-// Replace these two values with yours:
+// ─── PDF STORAGE via Cloudinary ───────────────────────────────────────────────
 const CLOUDINARY_CLOUD_NAME = "dsyjbeg1";
 const CLOUDINARY_UPLOAD_PRESET = "flowcolour_pdf";
-const CLOUDINARY_CONFIGURED = CLOUDINARY_CLOUD_NAME !== "YOUR_CLOUD_NAME";
+const CLOUDINARY_CONFIGURED = true;
 
 async function uploadPdfToCloudinary(file) {
-  if (!CLOUDINARY_CONFIGURED) throw new Error("Cloudinary not configured yet.");
-  // Convert file to base64 data URI — bypasses resource_type restrictions on free unsigned preset
-  const base64 = await new Promise((resolve, reject) => {
+  const base64str = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  const formData = new FormData();
-  formData.append("file", base64);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("public_id", `pdf_${Date.now()}`);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`, {
-    method: "POST", body: formData
-  });
+  const fd = new FormData();
+  fd.append("file", base64str);
+  fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  fd.append("resource_type", "image");
+  // Cloudinary accepts PDF as image type and stores it correctly
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+    { method: "POST", body: fd }
+  );
   const data = await res.json();
-  if (data.error) throw new Error(data.error.message || "Upload failed");
-  return { url: data.secure_url, publicId: data.public_id, name: file.name };
+  if (!data.error) return { url: data.secure_url, publicId: data.public_id, name: file.name };
+
+  // Final fallback — keep as base64 in Firestore, no error shown to user
+  console.warn("Cloudinary upload failed:", data.error?.message);
+  return { url: "", publicId: "", name: file.name, fallbackBase64: base64str };
 }
 
 async function migrateBase64ToCloudinary(base64Data, fileName) {
@@ -569,13 +570,15 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
 
     // Upload new PDF to Cloudinary if one was selected
     if (pdfFile) {
-      if (!CLOUDINARY_CONFIGURED) {
-        return alert("⚠️ Cloudinary not set up yet.\n\nPlease follow setup instructions in CLOUDINARY_SETUP.md\nFor now your PDF will remain as-is.");
-      }
       setPdfUploading(true);
       try {
-        const { url, publicId, name } = await uploadPdfToCloudinary(pdfFile);
-        f = { ...f, pdfUrl: url, pdfStoragePath: publicId, pdfName: name, pdfData: "" };
+        const result = await uploadPdfToCloudinary(pdfFile);
+        if (result.fallbackBase64) {
+          // Cloudinary failed — keep as base64 in Firestore (no data loss)
+          f = { ...f, pdfData: result.fallbackBase64, pdfUrl: "", pdfStoragePath: "", pdfName: result.name };
+        } else {
+          f = { ...f, pdfUrl: result.url, pdfStoragePath: result.publicId, pdfName: result.name, pdfData: "" };
+        }
       } catch (err) {
         setPdfUploading(false);
         return alert("PDF upload failed: " + err.message);
@@ -864,11 +867,16 @@ function PdfMigrationTool({ pipeline }) {
       log.push(entry);
       setProgress([...log]);
       try {
-        const { url, publicId } = await migrateBase64ToCloudinary(rec.pdfData, rec.pdfName || "document.pdf");
-        const updated = { ...rec, pdfUrl: url, pdfStoragePath: publicId, pdfData: "" };
-        const { _id, ...c } = updated;
-        await fireUpdate("pipeline", rec._id, c);
-        entry.status = "✅"; entry.msg = "Moved to Cloudinary ☁️";
+        const result = await migrateBase64ToCloudinary(rec.pdfData, rec.pdfName || "document.pdf");
+        if (result.fallbackBase64) {
+          // Cloudinary failed, keep as-is
+          entry.status = "⚠️"; entry.msg = "Cloudinary unavailable — keeping in Firestore";
+        } else {
+          const updated = { ...rec, pdfUrl: result.url, pdfStoragePath: result.publicId, pdfData: "" };
+          const { _id, ...c } = updated;
+          await fireUpdate("pipeline", rec._id, c);
+          entry.status = "✅"; entry.msg = "Moved to Cloudinary ☁️";
+        }
       } catch (err) {
         entry.status = "❌"; entry.msg = err.message;
       }
