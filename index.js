@@ -452,6 +452,8 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
   const [clientSearch, setClientSearch] = useState("");
   const [showClientDrop, setShowClientDrop] = useState(false);
   const [clientSummary, setClientSummary] = useState(null);
+  const [inlineEditId, setInlineEditId] = useState(null); // id of row being inline-edited
+  const [inlineDate, setInlineDate] = useState("");
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
   const empty = { Date:new Date().toISOString().slice(0,10), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", Sales:user.name, _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
@@ -511,7 +513,23 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients }) {
       </span>,
       Prob: <span style={{ color:"#a78bfa", fontSize:12 }}>{d.Probability}</span>,
       Status: d.NextAction ? <span style={{ background:naColor(d.NextAction)+"22", color:naColor(d.NextAction), border:`1px solid ${naColor(d.NextAction)}44`, padding:"2px 8px", borderRadius:12, fontSize:11, fontWeight:600, whiteSpace:"nowrap" }}>{d.NextAction}</span> : <span style={{ color:"#4a5568", fontSize:11 }}>—</span>,
-      "Follow-up": d.FollowUpDate ? <span style={{ color:isOverdue?"#ef4444":"#f59e0b", fontWeight:isOverdue?700:400, fontSize:12, whiteSpace:"nowrap" }}>{isOverdue?"⚠️ ":""}{d.FollowUpDate}</span> : <span style={{ color:"#4a5568", fontSize:11 }}>—</span>,
+      "Follow-up": (() => {
+        if (inlineEditId === d._id) {
+          return <div onClick={e=>e.stopPropagation()} style={{ display:"flex", gap:4, alignItems:"center" }}>
+            <input type="date" value={inlineDate} onChange={e=>setInlineDate(e.target.value)}
+              style={{ background:"#1a1f2e", border:"1px solid #667eea", color:"#e2e8f0", borderRadius:6, padding:"3px 6px", fontSize:11, colorScheme:"dark" }} />
+            <button onClick={async()=>{ await onUpdate(d._id,{...d,FollowUpDate:inlineDate}); setInlineEditId(null); }}
+              style={{ background:"#10b981", border:"none", color:"#fff", borderRadius:5, padding:"3px 7px", cursor:"pointer", fontSize:11 }}>✓</button>
+            <button onClick={()=>setInlineEditId(null)}
+              style={{ background:"#4a5568", border:"none", color:"#fff", borderRadius:5, padding:"3px 7px", cursor:"pointer", fontSize:11 }}>✕</button>
+          </div>;
+        }
+        return <div onClick={e=>{e.stopPropagation();if(isSuper||d._owner===user.name){setInlineEditId(d._id);setInlineDate(d.FollowUpDate||"");}}} style={{ cursor:"pointer" }}>
+          {d.FollowUpDate
+            ? <span style={{ color:isOverdue?"#ef4444":"#f59e0b", fontWeight:isOverdue?700:400, fontSize:12, whiteSpace:"nowrap" }}>{isOverdue?"⚠️ ":""}{d.FollowUpDate}</span>
+            : <span style={{ color:"#2d3748", fontSize:11, borderBottom:"1px dashed #2d3748" }}>+ Set date</span>}
+        </div>;
+      })(),
       PDF: (() => {
         const url = d.pdfUrl || d.pdfData; // support both storage URL and legacy base64
         return url
@@ -980,13 +998,15 @@ function ClientOwnerSearch({ allClients }) {
 }
 
 // ─── CLIENT MANAGEMENT 客户管理 ────────────────────────────────────────────────
-function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
+function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFollowup }) {
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [filters, setFilters] = useState({});
   const [form, setForm] = useState({});
-  const [dupWarning, setDupWarning] = useState(null); // duplicate client warning
+  const [dupWarning, setDupWarning] = useState(null);
+  const [historyClient, setHistoryClient] = useState(null); // client name for history panel
+  const [histForm, setHistForm] = useState({ date: new Date().toISOString().slice(0,10), note:"" });
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
   const empty={ Client:"", Contact:"", Email:"", Phone:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user.name, LastContact:new Date().toISOString().slice(0,10), Notes:"", _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
@@ -1030,8 +1050,111 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete }) {
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
-      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序</div>
-      <SortableTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Client" sortKeyMap={{"LastContact":"_sortLastContact"}} />
+      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort · 📋 Click client name for follow-up history</div>
+
+      {/* Follow-up History Panel */}
+      {historyClient && (() => {
+        const clientFollowups = (followups||[]).filter(f=>f.client===historyClient).sort((a,b)=>b.date>a.date?1:-1);
+        return (
+          <div style={{ background:"#0d1117", border:"1px solid #667eea44", borderRadius:14, padding:"18px 20px", marginBottom:16 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+              <div>
+                <span style={{ color:"#a78bfa", fontWeight:700, fontSize:15 }}>📋 Follow-up History — {historyClient}</span>
+                <span style={{ color:"#4a5568", fontSize:12, marginLeft:10 }}>{clientFollowups.length} records</span>
+              </div>
+              <button onClick={()=>setHistoryClient(null)} style={{ background:"none", border:"none", color:"#718096", fontSize:20, cursor:"pointer" }}>×</button>
+            </div>
+            {/* Add new note */}
+            <div style={{ display:"flex", gap:8, marginBottom:14, alignItems:"flex-end" }}>
+              <div>
+                <div style={{ color:"#a0aec0", fontSize:11, marginBottom:4 }}>Date</div>
+                <input type="date" value={histForm.date} onChange={e=>setHistForm(p=>({...p,date:e.target.value}))}
+                  style={{ ...IS, colorScheme:"dark", width:140, padding:"6px 10px" }} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ color:"#a0aec0", fontSize:11, marginBottom:4 }}>Note 备注</div>
+                <input value={histForm.note} onChange={e=>setHistForm(p=>({...p,note:e.target.value}))}
+                  placeholder="e.g. Sent quotation, client interested..."
+                  style={{ ...IS, width:"100%" }}
+                  onKeyDown={e=>{if(e.key==="Enter"&&histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user.name,_owner:user.name});setHistForm({date:new Date().toISOString().slice(0,10),note:""});}}} />
+              </div>
+              <Btn onClick={()=>{if(histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user.name,_owner:user.name});setHistForm({date:new Date().toISOString().slice(0,10),note:""});}}}
+                style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"8px 16px", whiteSpace:"nowrap" }}>+ Add</Btn>
+            </div>
+            {/* History list */}
+            {clientFollowups.length === 0
+              ? <div style={{ color:"#4a5568", fontSize:13, textAlign:"center", padding:"16px 0" }}>No follow-up records yet. Add the first one above!</div>
+              : clientFollowups.map((f,i) => (
+                <div key={f._id||i} style={{ display:"flex", gap:12, padding:"8px 12px", background:"#1a1f2e", borderRadius:8, marginBottom:6, alignItems:"flex-start" }}>
+                  <span style={{ color:"#667eea", fontSize:12, whiteSpace:"nowrap", fontWeight:600, minWidth:80 }}>{f.date}</span>
+                  <span style={{ color:"#a0aec0", fontSize:11, minWidth:60 }}>👤 {f.sales}</span>
+                  <span style={{ color:"#e2e8f0", fontSize:13, flex:1 }}>{f.note}</span>
+                </div>
+              ))
+            }
+          </div>
+        );
+      })()}
+
+      {/* Client table with WhatsApp + Email buttons */}
+      <div style={{ overflowX:"auto" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+          <thead><tr>
+            {["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Actions"].map(h=>(
+              <th key={h} style={{ textAlign:"left", padding:"10px 10px", color:"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {filtered.map((d,i) => (
+              <tr key={d._id||i} style={{ borderBottom:"1px solid #161b27" }}
+                onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
+                onMouseLeave={e=>e.currentTarget.style.background=""}>
+                <td style={{ padding:"9px 10px", color:"#a78bfa", fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}
+                  onClick={()=>setHistoryClient(historyClient===d.Client?null:d.Client)}>
+                  {d.Client} <span style={{ color:"#4a5568", fontSize:10 }}>📋</span>
+                </td>
+                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>{d.Contact||"—"}</td>
+                <td style={{ padding:"9px 10px", color:"#cbd5e0", whiteSpace:"nowrap" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span>{d.Phone||"—"}</span>
+                    {d.Phone && (
+                      <a href={`https://wa.me/${d.Phone.replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer"
+                        onClick={e=>e.stopPropagation()}
+                        style={{ background:"#1a3a1a", border:"1px solid #10b98133", color:"#10b981", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap" }}>
+                        💬 WA
+                      </a>
+                    )}
+                  </div>
+                </td>
+                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block" }}>{d.Email||"—"}</span>
+                    {d.Email && (
+                      <a href={`alimail://mail/compose?to=${encodeURIComponent(d.Email)}`}
+                        onClick={e=>{e.preventDefault();e.stopPropagation();window.open(`https://mail.aliyun.com/alimail/compose?to=${encodeURIComponent(d.Email)}`,"_blank");}}
+                        style={{ background:"#1a2a3a", border:"1px solid #3b82f633", color:"#60a5fa", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap", cursor:"pointer" }}>
+                        ✉️ Mail
+                      </a>
+                    )}
+                  </div>
+                </td>
+                <td style={{ padding:"9px 10px", color:"#a0aec0" }}>{d.Region||"—"}</td>
+                <td style={{ padding:"9px 10px", color:"#718096", fontSize:11 }}>{d.Country||"—"}</td>
+                <td style={{ padding:"9px 10px" }}><Badge status={d.Status||"Pending"} /></td>
+                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>{d.Sales||"—"}</td>
+                <td style={{ padding:"9px 10px", color:"#f59e0b", fontSize:12, whiteSpace:"nowrap" }}>{d.LastContact||"—"}</td>
+                <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
+                  {(isSuper||d._owner===user.name) ? <>
+                    <Btn onClick={()=>openEdit(i)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
+                    <Btn onClick={()=>del(i)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn>
+                  </> : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan={10} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No clients found</td></tr>}
+          </tbody>
+        </table>
+      </div>
 
       {modal && <Modal title={editItem?"Edit Client":"New Client 新增客户"} onClose={()=>{setModal(false);setDupWarning(null);}}>
         <Field label="Client 公司名称">
@@ -1091,9 +1214,14 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
   const empty={ Sales:user.name, Date:new Date().toISOString().slice(0,10), Type:"Weekly", Done:"", Plan:"", Issues:"", _owner:user.name };
 
+  const isSuper = user.role === "admin";
+
+  // Non-admin: only see own reports
+  const visibleData = isSuper ? data : data.filter(d => d._owner===user.name || d.Sales===user.name);
+
   // Filter
-  const filtered = data.filter(d => {
-    if (filters.person && d._owner!==filters.person && d.Sales!==filters.person) return false;
+  const filtered = visibleData.filter(d => {
+    if (isSuper && filters.person && d._owner!==filters.person && d.Sales!==filters.person) return false;
     if (filters.dateFrom && d.Date && d.Date < filters.dateFrom) return false;
     if (filters.dateTo && d.Date && d.Date > filters.dateTo) return false;
     return true;
@@ -1301,7 +1429,8 @@ function WeeklyActivity({ pipeline, tracking, reports }) {
 }
 
 // ─── CLIENT HEALTH 客户健康度 (admin only) ────────────────────────────────────
-function ClientHealth({ pipeline, clients }) {
+function ClientHealth({ pipeline, clients, user }) {
+  const isSuper = user?.role === "admin";
   const [riskFilter, setRiskFilter] = useState("all");
   const [salesFilter, setSalesFilter] = useState("");
   const [sortCol, setSortCol]   = useState("days");
@@ -1331,10 +1460,13 @@ function ClientHealth({ pipeline, clients }) {
     return { ...c, days, dayStr, risk, riskLabel, riskColor };
   });
 
+  // Non-admin: only see own clients
+  const userRows = isSuper ? allRows : allRows.filter(r => r.sales === user.name);
+
   // Filter
-  const filtered = allRows.filter(r => {
+  const filtered = userRows.filter(r => {
     if (riskFilter !== "all" && r.risk !== riskFilter) return false;
-    if (salesFilter && r.sales !== salesFilter) return false;
+    if (isSuper && salesFilter && r.sales !== salesFilter) return false;
     return true;
   });
 
@@ -1370,12 +1502,12 @@ function ClientHealth({ pipeline, clients }) {
           <Btn key={v} onClick={()=>setRiskFilter(v)} style={{ background:riskFilter===v?"#667eea":"#2d3748", color:riskFilter===v?"#fff":"#a0aec0", padding:"6px 12px", fontSize:12 }}>{l}</Btn>
         ))}
         <div style={{ width:1, height:20, background:"#2d3748", margin:"0 4px" }} />
-        <span style={{ color:"#718096", fontSize:12, whiteSpace:"nowrap" }}>Sales:</span>
+        {isSuper && <><span style={{ color:"#718096", fontSize:12, whiteSpace:"nowrap" }}>Sales:</span>
         <select style={{ ...SS, width:"auto", minWidth:120 }} value={salesFilter} onChange={e=>setSalesFilter(e.target.value)}>
           <option value="">All Sales</option>
           {SALES_MEMBERS.map(m=><option key={m} value={m}>{m}</option>)}
-        </select>
-        {(riskFilter!=="all"||salesFilter) && (
+        </select></>}
+        {(riskFilter!=="all"||(isSuper&&salesFilter)) && (
           <Btn onClick={()=>{setRiskFilter("all");setSalesFilter("");}} style={{ background:"#2d3748", color:"#a0aec0", padding:"6px 12px", fontSize:12 }}>✕ Clear</Btn>
         )}
         <div style={{ marginLeft:"auto", display:"flex", gap:12, fontSize:12, color:"#718096" }}>
@@ -1614,13 +1746,28 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 }
 
 // ─── SALES DASHBOARD 总监主页 (admin only) ────────────────────────────────────
-function SalesDashboard({ pipeline, tracking, clients, reports }) {
+function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSave }) {
   const [filters, setFilters] = useState({});
   const [selectedSales, setSelectedSales] = useState(null);
+  const [goalsModal, setGoalsModal] = useState(false);
+  const [goalForm, setGoalForm] = useState({});
   const filtered = applyFilters(pipeline, { ...filters }, "Date");
   const filteredTrack = applyFilters(tracking, { ...filters }, "Date");
   const totalRev = filtered.filter(d=>d.Stage==="Order").reduce((s,d)=>s+Number(d.Amount||0),0);
   const totalForecast = filtered.reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
+
+  // Goals: one doc per person with monthly targets {person, monthly: {amount, orders}}
+  function getGoal(name) { return goals.find(g=>g.person===name) || {}; }
+  async function saveGoals() {
+    for (const name of SALES_MEMBERS) {
+      const amt = parseFloat(goalForm["amt_"+name]||0);
+      const ord = parseInt(goalForm["ord_"+name]||0);
+      const existing = goals.find(g=>g.person===name);
+      const data = { person:name, monthly:{ amount:amt, orders:ord } };
+      await onGoalSave(existing?._id||null, existing ? {...data,_id:existing._id} : data);
+    }
+    setGoalsModal(false);
+  }
 
   const byPerson = SALES_MEMBERS.map(name => {
     const orders = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order");
@@ -1628,11 +1775,15 @@ function SalesDashboard({ pipeline, tracking, clients, reports }) {
     const leads  = filteredTrack.filter(d=>(d.Sales===name||d._owner===name));
     const rev    = orders.reduce((s,d)=>s+Number(d.Amount||0),0);
     const forecast = filtered.filter(d=>(d.Sales===name||d._owner===name)).reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
-    return { name, orders:orders.length, pipe:pipe.length, leads:leads.length, rev, forecast };
+    const goal = getGoal(name);
+    const targetAmt = goal.monthly?.amount || 0;
+    const targetOrd = goal.monthly?.orders || 0;
+    const pctAmt = targetAmt > 0 ? Math.min(rev/targetAmt*100,100) : null;
+    const pctOrd = targetOrd > 0 ? Math.min(orders.length/targetOrd*100,100) : null;
+    return { name, orders:orders.length, pipe:pipe.length, leads:leads.length, rev, forecast, targetAmt, targetOrd, pctAmt, pctOrd };
   });
   const maxRev = Math.max(...byPerson.map(p=>p.rev),1);
 
-  // KPI cards — horizontal single row with nowrap label
   const kpis = [
     { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order").length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
     { label:"Revenue 总收入",      value:totalRev.toLocaleString(),                   sub:"From orders",          color:"#10b981", icon:"💰" },
@@ -1652,9 +1803,38 @@ function SalesDashboard({ pipeline, tracking, clients, reports }) {
         />
       )}
 
+      {/* Goals Setting Modal */}
+      {goalsModal && (
+        <Modal title="🎯 Set Monthly Targets 设置月度目标" onClose={()=>setGoalsModal(false)}>
+          <div style={{ marginBottom:12, color:"#a0aec0", fontSize:13 }}>Set monthly revenue & order targets for each sales member.</div>
+          <div style={{ display:"grid", gap:10 }}>
+            {SALES_MEMBERS.map(name => {
+              const g = getGoal(name);
+              return (
+                <div key={name} style={{ background:"#0f1420", borderRadius:10, padding:"12px 16px", border:"1px solid #2d3748" }}>
+                  <div style={{ color:"#e2e8f0", fontWeight:700, marginBottom:8 }}>👤 {name}</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                    <Field label="Revenue Target 收入目标 ($)">
+                      <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.monthly?.amount??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 50000" />
+                    </Field>
+                    <Field label="Orders Target 成交目标 (deals)">
+                      <input style={IS} type="number" defaultValue={goalForm["ord_"+name]??g.monthly?.orders??""} onChange={e=>setGoalForm(p=>({...p,["ord_"+name]:e.target.value}))} placeholder="e.g. 5" />
+                    </Field>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:16 }}>
+            <Btn onClick={()=>setGoalsModal(false)} style={{ background:"#2d3748", color:"#a0aec0", padding:"10px 20px" }}>Cancel</Btn>
+            <Btn onClick={saveGoals} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"10px 24px" }}>Save Targets 保存</Btn>
+          </div>
+        </Modal>
+      )}
+
       <FilterBar isSuper={true} filters={filters} setFilters={setFilters} showPerson={false} />
 
-      {/* KPI Cards — 6 columns, single row, no text wrap */}
+      {/* KPI Cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:24 }}>
         {kpis.map(({label,value,sub,color,icon}) => (
           <div key={label} style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:14, padding:"16px 18px" }}>
@@ -1668,33 +1848,27 @@ function SalesDashboard({ pipeline, tracking, clients, reports }) {
         ))}
       </div>
 
-      {/* Sales Performance — clickable rows */}
-      <h4 style={{ color:"#e2e8f0", margin:"0 0 10px", fontSize:15 }}>
-        👥 Sales Performance 业务业绩排行
-        <span style={{ color:"#4a5568", fontSize:12, fontWeight:400, marginLeft:10 }}>Click a row to view full analysis 点击查看详细分析</span>
-      </h4>
+      {/* Sales Performance */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+        <h4 style={{ color:"#e2e8f0", margin:0, fontSize:15 }}>
+          👥 Sales Performance 业务业绩排行
+          <span style={{ color:"#4a5568", fontSize:12, fontWeight:400, marginLeft:10 }}>Click a row to view full analysis</span>
+        </h4>
+        <Btn onClick={()=>{setGoalForm({});setGoalsModal(true);}} style={{ background:"#1a2a3a", color:"#60a5fa", padding:"8px 14px", fontSize:12 }}>🎯 Set Targets 设置目标</Btn>
+      </div>
       <div style={{ display:"grid", gap:10, marginBottom:24 }}>
         {byPerson.sort((a,b)=>b.rev-a.rev).map((p,i) => (
           <div key={p.name} onClick={()=>setSelectedSales(p.name)}
             style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:12, padding:"14px 20px", cursor:"pointer", transition:"all 0.15s" }}
             onMouseEnter={e=>{e.currentTarget.style.background="#1e2840";e.currentTarget.style.borderColor="#667eea55";}}
             onMouseLeave={e=>{e.currentTarget.style.background="#1a1f2e";e.currentTarget.style.borderColor="#2d3748";}}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                 <span style={{ color:["#f59e0b","#9ca3af","#cd7f32"][i]||"#4a5568", fontWeight:800, fontSize:20, width:28, textAlign:"center" }}>{i+1}</span>
-                <div>
-                  <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>{p.name}</span>
-                  <span style={{ color:"#667eea", fontSize:11, marginLeft:10 }}>→ Click for details</span>
-                </div>
+                <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>{p.name}</span>
               </div>
               <div style={{ display:"flex", gap:20 }}>
-                {[
-                  [p.rev.toLocaleString(),"Revenue","#10b981"],
-                  [p.orders,"Orders","#3b82f6"],
-                  [p.pipe,"Pipeline","#a78bfa"],
-                  [p.leads,"Leads","#f59e0b"],
-                  [p.forecast.toLocaleString(),"Forecast","#ec4899"],
-                ].map(([val,lbl,c])=>(
+                {[[p.rev.toLocaleString(),"Revenue","#10b981"],[p.orders,"Orders","#3b82f6"],[p.pipe,"Pipeline","#a78bfa"],[p.leads,"Leads","#f59e0b"],[p.forecast.toLocaleString(),"Forecast","#ec4899"]].map(([val,lbl,c])=>(
                   <div key={lbl} style={{ textAlign:"center", minWidth:50 }}>
                     <div style={{ color:c, fontSize:15, fontWeight:700 }}>{val}</div>
                     <div style={{ color:"#4a5568", fontSize:10 }}>{lbl}</div>
@@ -1702,9 +1876,28 @@ function SalesDashboard({ pipeline, tracking, clients, reports }) {
                 ))}
               </div>
             </div>
-            <div style={{ background:"#0f1420", borderRadius:6, height:5 }}>
-              <div style={{ height:"100%", width:Math.min((p.rev/maxRev*100),100)+"%", background:"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.6s" }} />
+            {/* Revenue progress bar vs target */}
+            <div style={{ marginBottom: p.pctOrd!==null ? 4 : 0 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                <span style={{ color:"#4a5568", fontSize:10 }}>Revenue {p.pctAmt!==null ? `${Math.round(p.pctAmt)}% of $${p.targetAmt.toLocaleString()} target` : "— no target set"}</span>
+                {p.pctAmt!==null && <span style={{ color:p.pctAmt>=100?"#10b981":"#f59e0b", fontSize:10, fontWeight:700 }}>{p.pctAmt>=100?"✅ Goal Hit!":""}</span>}
+              </div>
+              <div style={{ background:"#0f1420", borderRadius:6, height:6 }}>
+                <div style={{ height:"100%", width:(p.pctAmt!==null?p.pctAmt:Math.min(p.rev/maxRev*100,100))+"%", background:p.pctAmt!==null?(p.pctAmt>=100?"linear-gradient(90deg,#10b981,#34d399)":"linear-gradient(90deg,#667eea,#f59e0b)"):"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.6s" }} />
+              </div>
             </div>
+            {/* Orders progress bar vs target */}
+            {p.pctOrd!==null && (
+              <div>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3, marginTop:4 }}>
+                  <span style={{ color:"#4a5568", fontSize:10 }}>Orders {p.orders}/{p.targetOrd} deals — {Math.round(p.pctOrd)}%</span>
+                  {p.pctOrd>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
+                </div>
+                <div style={{ background:"#0f1420", borderRadius:6, height:4 }}>
+                  <div style={{ height:"100%", width:p.pctOrd+"%", background:"linear-gradient(90deg,#3b82f6,#60a5fa)", borderRadius:6, transition:"width 0.6s" }} />
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -1740,8 +1933,10 @@ export default function App() {
   const [tracking, trackLoaded]  = useFireCollection("tracking");
   const [clients,  cliLoaded]    = useFireCollection("clients2");
   const [reports,  repLoaded]    = useFireCollection("reports");
+  const [goals,    goalsLoaded]  = useFireCollection("goals");
+  const [followups,fuLoaded]     = useFireCollection("followups");
 
-  const loaded = pipeLoaded && trackLoaded && cliLoaded && repLoaded;
+  const loaded = pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded && fuLoaded;
 
   const isSuper = user?.role === "admin";
 
@@ -1751,6 +1946,7 @@ export default function App() {
     { key:"tracking",  label:"Tracking 客户开发",            icon:"🎯" },
     { key:"clients",   label:"Clients 客户管理",              icon:"👥" },
     { key:"reports",   label:"Reports 工作汇报",              icon:"📝" },
+    { key:"health",    label:"Client Health 客户健康度",      icon:"❤️" },
   ];
   const ADMIN_TABS = [
     { key:"dashboard", label:"Sales Dashboard 总监主页",     icon:"📊" },
@@ -1816,13 +2012,13 @@ export default function App() {
       <div style={{ padding:"20px 24px" }}>
         {/* Global follow-up reminder — shows on all tabs */}
         {curTab !== "pipeline" && <FollowUpBanner pipeline={pipeline} user={user} />}
-        {curTab==="dashboard" && isSuper && <SalesDashboard pipeline={pipeline} tracking={tracking} clients={clients} reports={reports} />}
+        {curTab==="dashboard" && isSuper && <SalesDashboard pipeline={pipeline} tracking={tracking} clients={clients} reports={reports} goals={goals} onGoalSave={(id,d)=>id?fireUpdate("goals",id,d):fireAdd("goals",d)} />}
         {curTab==="pipeline"  && <Pipeline  data={pipeline} user={user} onAdd={d=>op("pipeline","add",d)} onUpdate={(id,d)=>op("pipeline","update",{...d,_id:id})} onDelete={id=>fireDelete("pipeline",id)} allClients={clients} />}
         {curTab==="tracking"  && <Tracking  data={tracking} user={user} onAdd={d=>op("tracking","add",d)} onUpdate={(id,d)=>op("tracking","update",{...d,_id:id})} onDelete={id=>fireDelete("tracking",id)} />}
-        {curTab==="clients"   && <ClientMgmt data={clients} user={user} onAdd={d=>op("clients2","add",d)} onUpdate={(id,d)=>op("clients2","update",{...d,_id:id})} onDelete={id=>fireDelete("clients2",id)} />}
+        {curTab==="clients"   && <ClientMgmt data={clients} user={user} onAdd={d=>op("clients2","add",d)} onUpdate={(id,d)=>op("clients2","update",{...d,_id:id})} onDelete={id=>fireDelete("clients2",id)} followups={followups} onAddFollowup={d=>fireAdd("followups",d)} />}
         {curTab==="reports"   && <Reports   data={reports} user={user} onAdd={d=>op("reports","add",d)} onUpdate={(id,d)=>op("reports","update",{...d,_id:id})} onDelete={id=>fireDelete("reports",id)} />}
         {curTab==="activity"  && isSuper && <WeeklyActivity pipeline={pipeline} tracking={tracking} reports={reports} />}
-        {curTab==="health"    && isSuper && <ClientHealth pipeline={pipeline} clients={clients} />}
+        {curTab==="health"    && <ClientHealth pipeline={pipeline} clients={clients} user={user} />}
       </div>
     </div>
   );
