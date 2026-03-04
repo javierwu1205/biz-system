@@ -1214,12 +1214,9 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
   const empty={ Sales:user.name, Date:new Date().toISOString().slice(0,10), Type:"Weekly", Done:"", Plan:"", Issues:"", _owner:user.name };
 
-  // Non-admin: only see own reports
-  const visibleData = isSuper ? data : data.filter(d => d._owner===user.name || d.Sales===user.name);
-
   // Filter
-  const filtered = visibleData.filter(d => {
-    if (isSuper && filters.person && d._owner!==filters.person && d.Sales!==filters.person) return false;
+  const filtered = data.filter(d => {
+    if (filters.person && d._owner!==filters.person && d.Sales!==filters.person) return false;
     if (filters.dateFrom && d.Date && d.Date < filters.dateFrom) return false;
     if (filters.dateTo && d.Date && d.Date > filters.dateTo) return false;
     return true;
