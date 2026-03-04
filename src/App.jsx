@@ -1909,6 +1909,255 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
   );
 }
 
+// ─── CALENDAR TODO 待办事项日历 ────────────────────────────────────────────────
+const PRIORITY_CONFIG = {
+  normal:  { label:"普通", color:"#667eea", bg:"#667eea18", dot:"🟢" },
+  important:{ label:"重要", color:"#f59e0b", bg:"#f59e0b18", dot:"🟡" },
+  urgent:  { label:"紧急", color:"#ef4444", bg:"#ef444418", dot:"🔴" },
+};
+const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const WEEKDAYS_ZH = ["日","一","二","三","四","五","六"];
+const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function CalendarTodo({ calTeam, calPersonal, user, onAddTeam, onUpdateTeam, onDeleteTeam, onAddPersonal, onUpdatePersonal, onDeletePersonal }) {
+  const isSuper = user?.role === "admin";
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const [viewYear,  setViewYear]  = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-indexed
+  const [selectedDay, setSelectedDay] = useState(null); // "YYYY-MM-DD"
+  const [dayModal, setDayModal]   = useState(false);
+
+  // Team announcement form state
+  const [teamText, setTeamText]   = useState("");
+  // Personal todo form state
+  const [todoText, setTodoText]   = useState("");
+  const [todoPriority, setTodoPriority] = useState("normal");
+
+  // Helpers
+  function dateStr(y, m, d) { return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
+  function teamForDay(ds)     { return calTeam.filter(t=>t.date===ds); }
+  function personalForDay(ds) { return calPersonal.filter(t=>t.date===ds && t.owner===user.name); }
+
+  // Build calendar grid for current month
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const cells = []; // null = empty padding
+  for (let i=0;i<firstDay;i++) cells.push(null);
+  for (let d=1;d<=daysInMonth;d++) cells.push(d);
+
+  function prevMonth() {
+    if (viewMonth===0) { setViewYear(y=>y-1); setViewMonth(11); }
+    else setViewMonth(m=>m-1);
+  }
+  function nextMonth() {
+    if (viewMonth===11) { setViewYear(y=>y+1); setViewMonth(0); }
+    else setViewMonth(m=>m+1);
+  }
+  function openDay(d) {
+    setSelectedDay(dateStr(viewYear, viewMonth, d));
+    setTeamText(""); setTodoText(""); setTodoPriority("normal");
+    setDayModal(true);
+  }
+
+  async function addTeamAnnouncement() {
+    if (!teamText.trim()) return;
+    await onAddTeam({ date:selectedDay, text:teamText.trim(), author:user.name, _owner:user.name });
+    setTeamText("");
+  }
+  async function deleteTeamItem(id) { await onDeleteTeam(id); }
+
+  async function addPersonalTodo() {
+    if (!todoText.trim()) return;
+    await onAddPersonal({ date:selectedDay, text:todoText.trim(), priority:todoPriority, done:false, owner:user.name, _owner:user.name });
+    setTodoText("");
+  }
+  async function toggleTodo(item) {
+    await onUpdatePersonal(item._id, {...item, done:!item.done});
+  }
+  async function deleteTodo(id) { await onDeletePersonal(id); }
+
+  const selTeam     = selectedDay ? teamForDay(selectedDay) : [];
+  const selPersonal = selectedDay ? personalForDay(selectedDay) : [];
+
+  // For display in cell: show up to 2 items total (team first, then personal)
+  return (
+    <div style={{ maxWidth:960, margin:"0 auto" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+        <button onClick={prevMonth} style={{ background:"#1a1f2e", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>‹</button>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ color:"#e2e8f0", fontWeight:800, fontSize:22 }}>{MONTHS_EN[viewMonth]} {viewYear}</div>
+          <div style={{ color:"#4a5568", fontSize:12, marginTop:2 }}>
+            <span style={{ color:"#f59e0b", marginRight:12 }}>📢 Team announcements</span>
+            <span style={{ color:"#a78bfa" }}>• Personal todos</span>
+          </div>
+        </div>
+        <button onClick={nextMonth} style={{ background:"#1a1f2e", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>›</button>
+      </div>
+
+      {/* Weekday headers */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:3 }}>
+        {WEEKDAYS.map((w,i) => (
+          <div key={w} style={{ textAlign:"center", color: i===0||i===6 ? "#ef4444" : "#718096", fontSize:12, fontWeight:600, padding:"6px 0" }}>
+            {w}<span style={{ color:"#4a5568", marginLeft:3, fontSize:10 }}>({WEEKDAYS_ZH[i]})</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
+        {cells.map((d, i) => {
+          if (!d) return <div key={"empty-"+i} />;
+          const ds = dateStr(viewYear, viewMonth, d);
+          const isToday = ds === todayStr;
+          const isSun = (firstDay + d - 1) % 7 === 0;
+          const isSat = (firstDay + d - 1) % 7 === 6;
+          const team = teamForDay(ds);
+          const personal = personalForDay(ds);
+          const hasItems = team.length > 0 || personal.length > 0;
+          return (
+            <div key={ds} onClick={()=>openDay(d)}
+              style={{
+                background: isToday ? "#1a1830" : "#1a1f2e",
+                border: isToday ? "2px solid #a78bfa" : "1px solid #2d3748",
+                borderRadius:10, padding:"8px 8px 6px", minHeight:90,
+                cursor:"pointer", transition:"all 0.15s", position:"relative"
+              }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor="#667eea66"; e.currentTarget.style.background=isToday?"#1e1a38":"#1e2433"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor=isToday?"#a78bfa":"#2d3748"; e.currentTarget.style.background=isToday?"#1a1830":"#1a1f2e"; }}>
+              {/* Date number */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
+                <span style={{
+                  color: isToday ? "#a78bfa" : isSun||isSat ? "#ef4444" : "#e2e8f0",
+                  fontWeight: isToday ? 800 : 600, fontSize:14,
+                }}>
+                  {d}
+                  {isToday && <span style={{ fontSize:9, color:"#a78bfa", marginLeft:3 }}>今</span>}
+                </span>
+                {hasItems && <span style={{ fontSize:8, color:"#4a5568" }}>{team.length+personal.length}</span>}
+              </div>
+              {/* Team announcements preview */}
+              {team.slice(0,1).map(t=>(
+                <div key={t._id} style={{ background:"#f59e0b18", border:"1px solid #f59e0b33", borderRadius:4, padding:"2px 5px", marginBottom:2, fontSize:10, color:"#f59e0b", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  📢 {t.text}
+                </div>
+              ))}
+              {team.length > 1 && <div style={{ fontSize:9, color:"#f59e0b88", marginBottom:2 }}>+{team.length-1} more</div>}
+              {/* Personal todos preview */}
+              {personal.slice(0,2).map(t=>(
+                <div key={t._id} style={{ display:"flex", alignItems:"center", gap:3, marginBottom:1 }}>
+                  <span style={{ fontSize:8 }}>{PRIORITY_CONFIG[t.priority||"normal"].dot}</span>
+                  <span style={{ fontSize:10, color: t.done?"#4a5568":"#a0aec0", textDecoration:t.done?"line-through":"none", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", flex:1 }}>{t.text}</span>
+                </div>
+              ))}
+              {personal.length > 2 && <div style={{ fontSize:9, color:"#667eea88" }}>+{personal.length-2} more</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Day Modal */}
+      {dayModal && selectedDay && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+          <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:520, maxHeight:"85vh", overflowY:"auto" }}>
+            {/* Modal header */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"18px 22px 12px", borderBottom:"1px solid #2d3748" }}>
+              <div>
+                <div style={{ color:"#e2e8f0", fontWeight:800, fontSize:17 }}>
+                  {(() => { const d=new Date(selectedDay+"T00:00:00"); return `${d.getDate()} ${MONTHS_EN[d.getMonth()]} ${d.getFullYear()}`; })()}
+                </div>
+                <div style={{ color:"#718096", fontSize:12, marginTop:2 }}>
+                  {(() => { const d=new Date(selectedDay+"T00:00:00"); return `${WEEKDAYS[d.getDay()]} · ${WEEKDAYS_ZH[d.getDay()]}曜日`; })()}
+                  {selectedDay===todayStr && <span style={{ color:"#a78bfa", marginLeft:8, fontWeight:600 }}>· 今天</span>}
+                </div>
+              </div>
+              <button onClick={()=>setDayModal(false)} style={{ background:"none", border:"none", color:"#718096", fontSize:24, cursor:"pointer" }}>×</button>
+            </div>
+
+            <div style={{ padding:"16px 22px 22px" }}>
+              {/* ── TEAM ANNOUNCEMENTS ── */}
+              <div style={{ marginBottom:20 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+                  <span style={{ fontSize:16 }}>📢</span>
+                  <span style={{ color:"#f59e0b", fontWeight:700, fontSize:14 }}>Team Announcements 团队公告</span>
+                  {!isSuper && <span style={{ color:"#4a5568", fontSize:11 }}>（Admin only 仅管理员编辑）</span>}
+                </div>
+                {/* Existing team items */}
+                {selTeam.length===0
+                  ? <div style={{ color:"#4a5568", fontSize:13, padding:"8px 0" }}>No announcements for this day.</div>
+                  : selTeam.map(t=>(
+                    <div key={t._id} style={{ display:"flex", alignItems:"flex-start", gap:8, background:"#f59e0b0d", border:"1px solid #f59e0b22", borderRadius:8, padding:"8px 12px", marginBottom:6 }}>
+                      <span style={{ color:"#f59e0b", fontSize:13, flex:1 }}>{t.text}</span>
+                      <span style={{ color:"#4a5568", fontSize:11, whiteSpace:"nowrap" }}>— {t.author}</span>
+                      {isSuper && <button onClick={()=>deleteTeamItem(t._id)} style={{ background:"none", border:"none", color:"#ef444466", cursor:"pointer", fontSize:14, padding:0, flexShrink:0 }}>✕</button>}
+                    </div>
+                  ))
+                }
+                {/* Add team announcement — admin only */}
+                {isSuper && (
+                  <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                    <input value={teamText} onChange={e=>setTeamText(e.target.value)}
+                      placeholder="Add team announcement... 添加公告"
+                      style={{ ...IS, flex:1, fontSize:13 }}
+                      onKeyDown={e=>{ if(e.key==="Enter") addTeamAnnouncement(); }} />
+                    <Btn onClick={addTeamAnnouncement} style={{ background:"#f59e0b22", color:"#f59e0b", padding:"8px 14px", border:"1px solid #f59e0b44", flexShrink:0 }}>+ Add</Btn>
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div style={{ height:1, background:"#2d3748", margin:"0 0 18px" }} />
+
+              {/* ── PERSONAL TODOS ── */}
+              <div>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+                  <span style={{ fontSize:16 }}>✏️</span>
+                  <span style={{ color:"#a78bfa", fontWeight:700, fontSize:14 }}>My Todos 我的待办</span>
+                </div>
+                {/* Existing personal todos */}
+                {selPersonal.length===0
+                  ? <div style={{ color:"#4a5568", fontSize:13, padding:"8px 0" }}>No todos yet. Add one below!</div>
+                  : selPersonal.map(t=>{
+                    const pc = PRIORITY_CONFIG[t.priority||"normal"];
+                    return (
+                      <div key={t._id} style={{ display:"flex", alignItems:"center", gap:8, background:t.done?"#1a1f2e":pc.bg, border:`1px solid ${t.done?"#2d3748":pc.color+"33"}`, borderRadius:8, padding:"8px 12px", marginBottom:6, transition:"all 0.2s" }}>
+                        <input type="checkbox" checked={t.done} onChange={()=>toggleTodo(t)}
+                          style={{ width:15, height:15, cursor:"pointer", accentColor:pc.color, flexShrink:0 }} />
+                        <span style={{ fontSize:13, flex:1, color:t.done?"#4a5568":"#e2e8f0", textDecoration:t.done?"line-through":"none", transition:"all 0.2s" }}>{t.text}</span>
+                        <span style={{ fontSize:11, color:pc.color, fontWeight:600, whiteSpace:"nowrap" }}>{pc.dot} {pc.label}</span>
+                        <button onClick={()=>deleteTodo(t._id)} style={{ background:"none", border:"none", color:"#ef444466", cursor:"pointer", fontSize:14, padding:0, flexShrink:0 }}>✕</button>
+                      </div>
+                    );
+                  })
+                }
+                {/* Add personal todo */}
+                <div style={{ marginTop:10 }}>
+                  <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                    {Object.entries(PRIORITY_CONFIG).map(([key,cfg])=>(
+                      <Btn key={key} onClick={()=>setTodoPriority(key)}
+                        style={{ flex:1, background:todoPriority===key?cfg.bg:"#0f1420", color:todoPriority===key?cfg.color:"#4a5568", border:`1px solid ${todoPriority===key?cfg.color+"55":"#2d3748"}`, padding:"6px 0", fontSize:12, transition:"all 0.15s" }}>
+                        {cfg.dot} {cfg.label}
+                      </Btn>
+                    ))}
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <input value={todoText} onChange={e=>setTodoText(e.target.value)}
+                      placeholder="Add a todo... 添加待办事项"
+                      style={{ ...IS, flex:1, fontSize:13, borderColor: PRIORITY_CONFIG[todoPriority].color+"55" }}
+                      onKeyDown={e=>{ if(e.key==="Enter") addPersonalTodo(); }} />
+                    <Btn onClick={addPersonalTodo} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"8px 16px", flexShrink:0 }}>+ Add</Btn>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── TEAM LEADERBOARD 业绩目标排行 ────────────────────────────────────────────
 function TeamLeaderboard({ pipeline, goals, user }) {
   const now = new Date();
@@ -2031,29 +2280,33 @@ export default function App() {
   const [reports,  repLoaded]    = useFireCollection("reports");
   const [goals,    goalsLoaded]  = useFireCollection("goals");
   const [followups,fuLoaded]     = useFireCollection("followups");
+  const [calTeam,  calTeamLoaded]= useFireCollection("cal_team");
+  const [calPersonal, calPersonalLoaded] = useFireCollection("cal_personal");
 
-  const loaded = pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded && fuLoaded;
+  const loaded = pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded && fuLoaded && calTeamLoaded && calPersonalLoaded;
 
   const isSuper = user?.role === "admin";
 
   // tabs: members see 4, admins see 7
   const MEMBER_TABS = [
-    { key:"pipeline",  label:"Quotation & Pipeline 报价",   icon:"📦" },
-    { key:"tracking",  label:"Tracking 客户开发",            icon:"🎯" },
-    { key:"clients",   label:"Clients 客户管理",              icon:"👥" },
-    { key:"reports",   label:"Reports 工作汇报",              icon:"📝" },
-    { key:"health",    label:"Client Health 客户健康度",      icon:"❤️" },
-    { key:"leaderboard", label:"Team Goals 业绩目标",        icon:"🏆" },
+    { key:"calendar",    label:"待办事项 Calendar",             icon:"📅" },
+    { key:"pipeline",    label:"Quotation & Pipeline 报价",   icon:"📦" },
+    { key:"tracking",    label:"Tracking 客户开发",            icon:"🎯" },
+    { key:"clients",     label:"Clients 客户管理",              icon:"👥" },
+    { key:"reports",     label:"Reports 工作汇报",              icon:"📝" },
+    { key:"health",      label:"Client Health 客户健康度",      icon:"❤️" },
+    { key:"leaderboard", label:"Team Goals 业绩目标",          icon:"🏆" },
   ];
   const ADMIN_TABS = [
-    { key:"dashboard", label:"Sales Dashboard 总监主页",     icon:"📊" },
-    { key:"pipeline",  label:"Quotation & Pipeline 报价",   icon:"📦" },
-    { key:"tracking",  label:"Tracking 客户开发",            icon:"🎯" },
-    { key:"clients",   label:"Clients 客户管理",              icon:"👥" },
-    { key:"reports",   label:"Reports 工作汇报",              icon:"📝" },
-    { key:"activity",  label:"Weekly Activity 行为管理",      icon:"📈" },
-    { key:"health",    label:"Client Health 客户健康度",      icon:"❤️" },
-    { key:"leaderboard", label:"Team Goals 业绩目标",        icon:"🏆" },
+    { key:"calendar",    label:"待办事项 Calendar",             icon:"📅" },
+    { key:"dashboard",   label:"Sales Dashboard 总监主页",     icon:"📊" },
+    { key:"pipeline",    label:"Quotation & Pipeline 报价",   icon:"📦" },
+    { key:"tracking",    label:"Tracking 客户开发",            icon:"🎯" },
+    { key:"clients",     label:"Clients 客户管理",              icon:"👥" },
+    { key:"reports",     label:"Reports 工作汇报",              icon:"📝" },
+    { key:"activity",    label:"Weekly Activity 行为管理",      icon:"📈" },
+    { key:"health",      label:"Client Health 客户健康度",      icon:"❤️" },
+    { key:"leaderboard", label:"Team Goals 业绩目标",          icon:"🏆" },
   ];
   const tabs = isSuper ? ADMIN_TABS : MEMBER_TABS;
   const curTab = tabs[tab]?.key || tabs[0]?.key;
@@ -2115,6 +2368,7 @@ export default function App() {
         {curTab==="tracking"  && <Tracking  data={tracking} user={user} onAdd={d=>op("tracking","add",d)} onUpdate={(id,d)=>op("tracking","update",{...d,_id:id})} onDelete={id=>fireDelete("tracking",id)} />}
         {curTab==="clients"   && <ClientMgmt data={clients} user={user} onAdd={d=>op("clients2","add",d)} onUpdate={(id,d)=>op("clients2","update",{...d,_id:id})} onDelete={id=>fireDelete("clients2",id)} followups={followups} onAddFollowup={d=>fireAdd("followups",d)} />}
         {curTab==="reports"   && <Reports   data={reports} user={user} onAdd={d=>op("reports","add",d)} onUpdate={(id,d)=>op("reports","update",{...d,_id:id})} onDelete={id=>fireDelete("reports",id)} />}
+        {curTab==="calendar"    && <CalendarTodo calTeam={calTeam} calPersonal={calPersonal} user={user} onAddTeam={d=>fireAdd("cal_team",d)} onUpdateTeam={(id,d)=>fireUpdate("cal_team",id,d)} onDeleteTeam={id=>fireDelete("cal_team",id)} onAddPersonal={d=>fireAdd("cal_personal",d)} onUpdatePersonal={(id,d)=>fireUpdate("cal_personal",id,d)} onDeletePersonal={id=>fireDelete("cal_personal",id)} />}
         {curTab==="activity"  && isSuper && <WeeklyActivity pipeline={pipeline} tracking={tracking} reports={reports} />}
         {curTab==="health"    && <ClientHealth pipeline={pipeline} clients={clients} user={user} />}
         {curTab==="leaderboard" && <TeamLeaderboard pipeline={pipeline} goals={goals} user={user} />}
