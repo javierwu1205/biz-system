@@ -74,7 +74,7 @@ const COUNTRIES_BY_REGION = {
   "Others": ["China Mainland","Mongolia","North Korea","Others"]
 };
 const SOURCES = ["Email","Google","WhatsApp","LinkedIn","Facebook","Instagram","Others"];
-const PRODUCTS = ["Pipe","Fitting","Valve","Others"];
+const INDUSTRIES = ["Water Treatment","Distributors","Chemical Processing","Electroplating","Semiconductor Manufacturing","Solar PV Industry","PCB Manufacturing","Pharmaceutical Industry","Food & Beverage Industry","Aquaculture & Public Aquariums","Desalination","Mining Industry","Power Plants","Environmental Engineering (EPC)","OEM Equipment Manufacturing","Laboratory Systems","Industrial Cooling Systems","Agricultural Irrigation","Swimming Pool Equipment Suppliers","Others"];
 const TRACK_STATUS = ["Contacted","Connected","Quoted","Won"];
 const PIPELINE_STAGES = ["Quotation","Negotiation","Order"];
 const PROBABILITIES = ["0%","25%","50%","75%","100%"];
@@ -349,11 +349,11 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
   const [filters, setFilters] = useState({});
   const [form, setForm] = useState({});
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
-  const empty = { Date:new Date().toISOString().slice(0,10), Client:"", Region:"North America", Country:"United States", Source:"Email", Product:"Pipe", Status:"Contacted", Notes:"", Sales:user.name, _owner:user.name };
+  const empty = { Date:new Date().toISOString().slice(0,10), Client:"", Region:"North America", Country:"United States", Source:"Email", Industry:"Water Treatment", IndustryOther:"", Status:"Contacted", Notes:"", Sales:user.name, _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
   const filtered = applyFilters(visible, filters);
-  const exportCols = ["Date","Client","Region","Country","Source","Product","Status","Sales","Notes"];
-  const headers = ["Date","Client","Region","Country","Source","Product","Status","Sales"];
+  const exportCols = ["Date","Client","Region","Country","Source","Industry","Status","Sales","Notes"];
+  const headers = ["Date","Client","Region","Country","Source","Industry","Status","Sales"];
   const rows = filtered.map((d,idx)=>({...d, _editIdx:idx, _sortDate: typeof d.Date==="string"?d.Date:String(d.Date||""), _canEdit:isSuper||d._owner===user.name}));
   const trackingSortKeyMap = {"Date":"_sortDate"};
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
@@ -386,7 +386,16 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
           <Field label="Region 地区"><select style={SS} value={form.Region} onChange={e=>{fv("Region",e.target.value);fv("Country",(COUNTRIES_BY_REGION[e.target.value]||["Others"])[0]);}}>{REGIONS_EN.map(r=><option key={r}>{r}</option>)}</select></Field>
           <Field label="Country 国家"><select style={SS} value={form.Country} onChange={e=>fv("Country",e.target.value)}>{countries.map(c=><option key={c}>{c}</option>)}</select></Field>
           <Field label="Source 来源"><select style={SS} value={form.Source} onChange={e=>fv("Source",e.target.value)}>{SOURCES.map(s=><option key={s}>{s}</option>)}</select></Field>
-          <Field label="Product 产品"><select style={SS} value={form.Product} onChange={e=>fv("Product",e.target.value)}>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select></Field>
+          <Field label="Industry 行业别">
+            <select style={SS} value={form.Industry||"Water Treatment"} onChange={e=>fv("Industry",e.target.value)}>
+              {INDUSTRIES.map(i=><option key={i}>{i}</option>)}
+            </select>
+          </Field>
+          {(form.Industry==="Others") && (
+            <Field label="Please specify 请说明">
+              <input style={IS} value={form.IndustryOther||""} onChange={e=>fv("IndustryOther",e.target.value)} placeholder="Enter industry..." />
+            </Field>
+          )}
           <Field label="Status 状态"><select style={SS} value={form.Status} onChange={e=>fv("Status",e.target.value)}>{TRACK_STATUS.map(s=><option key={s}>{s}</option>)}</select></Field>
           <Field label="Sales 业务员"><input style={{...IS, opacity:isSuper?1:0.6}} value={form.Sales} disabled={!isSuper} onChange={e=>fv("Sales",e.target.value)} /></Field>
         </div>
@@ -1566,10 +1575,9 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
   orders.forEach(d=>{ byRegion[d.Region||"Unknown"]=(byRegion[d.Region||"Unknown"]||0)+Number(d.Amount||0); });
   const regionList = Object.entries(byRegion).sort((a,b)=>b[1]-a[1]);
 
-  // Revenue by product
-  const byProduct = {};
-  myTracking.forEach(d=>{ byProduct[d.Product||"Others"]=(byProduct[d.Product||"Others"]||0)+1; });
-  const productList = Object.entries(byProduct).sort((a,b)=>b[1]-a[1]);
+  const byIndustry = {};
+  myTracking.forEach(d=>{ const key = d.Industry||(d.Product||"Others"); byIndustry[key]=(byIndustry[key]||0)+1; });
+  const industryList = Object.entries(byIndustry).sort((a,b)=>b[1]-a[1]);
 
   // Monthly revenue (last 6 months)
   const monthlyRev = {};
@@ -1678,11 +1686,11 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
                   ))}
               </div>
               <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", flex:1 }}>
-                <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:10 }}>🔧 Products Tracked 产品</div>
-                {productList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No tracking data</div>
-                  : productList.map(([prod,cnt])=>(
-                    <div key={prod} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:"1px solid #1e2433" }}>
-                      <span style={{ color:"#cbd5e0", fontSize:12 }}>{prod}</span>
+                <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:10 }}>🏭 Industries Tracked 行业别</div>
+                {industryList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No tracking data</div>
+                  : industryList.map(([ind,cnt])=>(
+                    <div key={ind} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:"1px solid #1e2433" }}>
+                      <span style={{ color:"#cbd5e0", fontSize:12 }}>{ind}</span>
                       <span style={{ color:"#a78bfa", fontWeight:600, fontSize:12 }}>{cnt}</span>
                     </div>
                   ))}
