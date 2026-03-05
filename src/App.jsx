@@ -2381,33 +2381,53 @@ function AIAssistant({ user, pipeline, tracking, clients, isSuper }) {
     }).map(d=>({ name:d.Client, lastContact:d.LastContact||"never", sales:d.Sales, days: d.LastContact?Math.floor((new Date()-new Date(d.LastContact))/864e5):999 }))
       .sort((a,b)=>b.days-a.days).slice(0,10);
 
-    const pipelineSummary = active.slice(0,15).map(d=>({
-      client:d.Client, amount:d.Amount, currency:d.Currency, stage:d.Stage,
-      probability:d.Probability, followUp:d.FollowUpDate||"not set", nextAction:d.NextAction
-    }));
+    const pipelineSummary = active.map(d=>
+      `- [${d.Sales||d._owner||"?"}] ${d.Client}: ${d.Currency||""} ${Number(d.Amount||0).toLocaleString()} | ${d.Stage} | ${d.Probability||""} | Follow-up: ${d.FollowUpDate||"not set"} | Next: ${d.NextAction||"—"}`
+    ).join("\n");
+
+    const clientList = myClients.map(d=> {
+      const days = d.LastContact ? Math.floor((new Date()-new Date(d.LastContact))/864e5) : 999;
+      return `- [${d.Sales||d._owner||"?"}] ${d.Client} | Last contact: ${d.LastContact||"never"} (${days}d ago) | Status: ${d.Status||"?"} | Country: ${d.Country||"?"}`;
+    }).join("\n");
+
+    // Per-person breakdown for admin
+    const teamBreakdown = isSuper ? (() => {
+      const members = [...new Set([...pipeline,...clients].map(d=>d.Sales||d._owner).filter(Boolean))];
+      return members.map(m=>{
+        const mp = pipeline.filter(d=>(d.Sales||d._owner)===m);
+        const mc = clients.filter(d=>(d.Sales||d._owner)===m);
+        const mo = mp.filter(d=>d.Stage==="Order");
+        const ma = mp.filter(d=>d.Stage!=="Order");
+        return `  ${m}: ${mc.length} clients, ${ma.length} active deals, ${mo.length} orders won`;
+      }).join("\n");
+    })() : "";
 
     return `
-You are an AI sales assistant for Flowcolour's business management system. 
-Current user: ${user.name} (${isSuper?"Admin — can see all data":"Sales member — seeing own data only"})
+You are an AI sales assistant for Flowcolour's business management system.
+Current user: ${user.name} (${isSuper?"Admin — full access to ALL team data":"Sales member — your own data only"})
 Today: ${today}
 
-=== SALES DATA SNAPSHOT ===
-Pipeline Active Deals: ${active.length} deals
-Orders Won: ${orders.length} (Total Revenue: $${totalRevenue.toLocaleString()}, Profit: $${totalProfit.toLocaleString()})
-Overdue Follow-ups: ${overdueFollowUp.length} deals past follow-up date
-Leads in Tracking: ${myTracking.length}
+=== SUMMARY ===
 Total Clients: ${myClients.length}
+Active Pipeline Deals: ${active.length}
+Orders Won: ${orders.length} | Revenue: $${totalRevenue.toLocaleString()} | Profit: $${totalProfit.toLocaleString()}
+Overdue Follow-ups: ${overdueFollowUp.length}
+Tracking Leads: ${myTracking.length}
+${isSuper ? `\n=== TEAM BREAKDOWN ===\n${teamBreakdown}` : ""}
 
-=== CLIENTS NEEDING ATTENTION (30+ days no contact) ===
-${staleClients.length===0 ? "All clients contacted recently ✅" : staleClients.map(c=>`- ${c.name}: last contact ${c.lastContact} (${c.days} days ago)${isSuper?` [${c.sales}]`:""}`).join("\n")}
+=== ALL CLIENTS (${myClients.length} total) ===
+${clientList}
 
-=== ACTIVE PIPELINE (top 15) ===
-${pipelineSummary.map(d=>`- ${d.client}: ${d.currency} ${Number(d.amount||0).toLocaleString()} | ${d.stage} | ${d.probability} | Follow-up: ${d.followUp} | Next: ${d.nextAction||"—"}`).join("\n")}
+=== ALL ACTIVE PIPELINE (${active.length} deals) ===
+${pipelineSummary}
 
 === OVERDUE FOLLOW-UPS ===
-${overdueFollowUp.length===0 ? "None 🎉" : overdueFollowUp.map(d=>`- ${d.Client}: was due ${d.FollowUpDate} (${d.Currency} ${Number(d.Amount||0).toLocaleString()})`).join("\n")}
+${overdueFollowUp.length===0 ? "None 🎉" : overdueFollowUp.map(d=>`- [${d.Sales||d._owner}] ${d.Client}: due ${d.FollowUpDate} | ${d.Currency||""} ${Number(d.Amount||0).toLocaleString()}`).join("\n")}
 
-Respond in the same language the user writes in (Chinese or English). Be concise, actionable, and friendly. Use emojis sparingly. When drafting emails/WhatsApp messages, format them clearly.`;
+=== CLIENTS NOT CONTACTED 30+ DAYS ===
+${staleClients.length===0 ? "All clients contacted recently ✅" : staleClients.map(c=>`- ${c.name}: ${c.days} days ago${isSuper?` [${c.sales}]`:""}`).join("\n")}
+
+IMPORTANT: You have been given the COMPLETE data above. Always answer based on this data directly — do NOT say you cannot see the data or ask the user to provide it. Respond in the same language the user writes in (Chinese or English). Be concise and actionable.`;
   }
 
   // Auto-analysis on first open
