@@ -2350,6 +2350,225 @@ function TeamLeaderboard({ pipeline, goals, user }) {
   );
 }
 
+// ─── AI ASSISTANT 🤖 ──────────────────────────────────────────────────────────
+function AIAssistant({ user, pipeline, tracking, clients, isSuper }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([]); // {role, content}
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [autoAnalyzed, setAutoAnalyzed] = useState(false);
+  const messagesEndRef = useCallback(node => { if (node) node.scrollIntoView({ behavior:"smooth" }); }, []);
+
+  const today = new Date().toISOString().slice(0,10);
+
+  // Build context snapshot of user's data (or all data for admin)
+  function buildContext() {
+    const myPipeline  = isSuper ? pipeline  : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
+    const myTracking  = isSuper ? tracking  : tracking.filter(d=>d._owner===user.name||d.Sales===user.name);
+    const myClients   = isSuper ? clients   : clients.filter(d=>d._owner===user.name||d.Sales===user.name);
+
+    const orders = myPipeline.filter(d=>d.Stage==="Order");
+    const active = myPipeline.filter(d=>d.Stage!=="Order");
+    const overdueFollowUp = active.filter(d=>d.FollowUpDate && d.FollowUpDate<=today);
+    const totalRevenue = orders.reduce((s,d)=>s+Number(d.Amount||0),0);
+    const totalProfit  = orders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
+
+    // Clients not contacted in 30+ days
+    const staleClients = myClients.filter(d => {
+      if (!d.LastContact) return true;
+      const diff = Math.floor((new Date()-new Date(d.LastContact))/864e5);
+      return diff >= 30;
+    }).map(d=>({ name:d.Client, lastContact:d.LastContact||"never", sales:d.Sales, days: d.LastContact?Math.floor((new Date()-new Date(d.LastContact))/864e5):999 }))
+      .sort((a,b)=>b.days-a.days).slice(0,10);
+
+    const pipelineSummary = active.slice(0,15).map(d=>({
+      client:d.Client, amount:d.Amount, currency:d.Currency, stage:d.Stage,
+      probability:d.Probability, followUp:d.FollowUpDate||"not set", nextAction:d.NextAction
+    }));
+
+    return `
+You are an AI sales assistant for Flowcolour's business management system. 
+Current user: ${user.name} (${isSuper?"Admin — can see all data":"Sales member — seeing own data only"})
+Today: ${today}
+
+=== SALES DATA SNAPSHOT ===
+Pipeline Active Deals: ${active.length} deals
+Orders Won: ${orders.length} (Total Revenue: $${totalRevenue.toLocaleString()}, Profit: $${totalProfit.toLocaleString()})
+Overdue Follow-ups: ${overdueFollowUp.length} deals past follow-up date
+Leads in Tracking: ${myTracking.length}
+Total Clients: ${myClients.length}
+
+=== CLIENTS NEEDING ATTENTION (30+ days no contact) ===
+${staleClients.length===0 ? "All clients contacted recently ✅" : staleClients.map(c=>`- ${c.name}: last contact ${c.lastContact} (${c.days} days ago)${isSuper?` [${c.sales}]`:""}`).join("\n")}
+
+=== ACTIVE PIPELINE (top 15) ===
+${pipelineSummary.map(d=>`- ${d.client}: ${d.currency} ${Number(d.amount||0).toLocaleString()} | ${d.stage} | ${d.probability} | Follow-up: ${d.followUp} | Next: ${d.nextAction||"—"}`).join("\n")}
+
+=== OVERDUE FOLLOW-UPS ===
+${overdueFollowUp.length===0 ? "None 🎉" : overdueFollowUp.map(d=>`- ${d.Client}: was due ${d.FollowUpDate} (${d.Currency} ${Number(d.Amount||0).toLocaleString()})`).join("\n")}
+
+Respond in the same language the user writes in (Chinese or English). Be concise, actionable, and friendly. Use emojis sparingly. When drafting emails/WhatsApp messages, format them clearly.`;
+  }
+
+  // Auto-analysis on first open
+  async function openChat() {
+    setOpen(true);
+    if (!autoAnalyzed) {
+      setAutoAnalyzed(true);
+      setLoading(true);
+      const systemCtx = buildContext();
+      const autoPrompt = `Hi! I just opened the AI assistant. Please give me a quick briefing:
+1. How many clients need follow-up (30+ days)?
+2. Any overdue pipeline follow-ups?
+3. One quick tip or priority action for today.
+Keep it short and actionable!`;
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({
+            model:"claude-sonnet-4-20250514",
+            max_tokens:1000,
+            system: systemCtx,
+            messages:[{ role:"user", content:autoPrompt }]
+          })
+        });
+        const data = await res.json();
+        const reply = data.content?.map(c=>c.text||"").join("") || "Hello! I'm ready to help.";
+        setMessages([
+          { role:"assistant", content: reply }
+        ]);
+      } catch(e) {
+        setMessages([{ role:"assistant", content:"👋 Hi "+user.name+"! I'm your AI sales assistant. Ask me anything — analyze your pipeline, draft follow-up emails, or get sales tips!" }]);
+      }
+      setLoading(false);
+    }
+  }
+
+  async function sendMessage() {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setInput("");
+    const newMessages = [...messages, { role:"user", content:userMsg }];
+    setMessages(newMessages);
+    setLoading(true);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          system: buildContext(),
+          messages: newMessages.map(m=>({ role:m.role, content:m.content }))
+        })
+      });
+      const data = await res.json();
+      const reply = data.content?.map(c=>c.text||"").join("") || "Sorry, I couldn't process that.";
+      setMessages(prev=>[...prev, { role:"assistant", content:reply }]);
+    } catch(e) {
+      setMessages(prev=>[...prev, { role:"assistant", content:"⚠️ Connection error. Please try again." }]);
+    }
+    setLoading(false);
+  }
+
+  // Quick action prompts
+  const quickActions = [
+    { label:"📋 待跟进客户", prompt:"List all clients that haven't been contacted in 30+ days. For each, suggest a brief outreach message." },
+    { label:"⚠️ 逾期跟进", prompt:"Show me all overdue pipeline follow-ups and suggest what action to take for each." },
+    { label:"✉️ 写跟进邮件", prompt:"Help me draft a professional follow-up email for my most important pending deal. Make it warm and brief." },
+    { label:"💬 WhatsApp模板", prompt:"Write 3 short WhatsApp follow-up message templates I can use for different situations: 1) checking in after a quote, 2) following up after no response, 3) nurturing a cold lead." },
+    { label:"📊 业绩分析", prompt:"Give me a brief analysis of my current sales performance: wins, active pipeline, and what I should focus on." },
+  ];
+
+  return (
+    <>
+      {/* Floating button */}
+      {!open && (
+        <button onClick={openChat}
+          style={{ position:"fixed", bottom:28, right:28, width:58, height:58, borderRadius:"50%", background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", fontSize:26, cursor:"pointer", boxShadow:"0 4px 20px #667eea55", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", transition:"transform 0.2s" }}
+          onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"}
+          onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
+          🤖
+        </button>
+      )}
+
+      {/* Chat window */}
+      {open && (
+        <div style={{ position:"fixed", bottom:24, right:24, width:400, height:580, background:"#1a1f2e", border:"1px solid #667eea44", borderRadius:18, boxShadow:"0 8px 40px rgba(0,0,0,0.6)", zIndex:500, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+          {/* Header */}
+          <div style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:22 }}>🤖</span>
+              <div>
+                <div style={{ color:"#fff", fontWeight:700, fontSize:14 }}>AI Sales Assistant</div>
+                <div style={{ color:"#ffffff99", fontSize:11 }}>Hi {user.name}! · {isSuper?"Full data access":"Your data only"}</div>
+              </div>
+            </div>
+            <button onClick={()=>setOpen(false)} style={{ background:"#ffffff22", border:"none", color:"#fff", borderRadius:8, padding:"4px 10px", cursor:"pointer", fontSize:16 }}>×</button>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:"auto", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10 }}>
+            {messages.length===0 && !loading && (
+              <div style={{ color:"#4a5568", fontSize:13, textAlign:"center", marginTop:20 }}>
+                Loading your briefing...
+              </div>
+            )}
+            {messages.map((m,i) => (
+              <div key={i} style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
+                <div style={{
+                  maxWidth:"85%", padding:"10px 14px", borderRadius: m.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px",
+                  background: m.role==="user" ? "linear-gradient(135deg,#667eea,#764ba2)" : "#0f1420",
+                  border: m.role==="user" ? "none" : "1px solid #2d3748",
+                  color:"#e2e8f0", fontSize:13, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word"
+                }}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div style={{ display:"flex", justifyContent:"flex-start" }}>
+                <div style={{ background:"#0f1420", border:"1px solid #2d3748", borderRadius:"14px 14px 14px 4px", padding:"10px 16px" }}>
+                  <span style={{ color:"#667eea", fontSize:18, animation:"none" }}>●●●</span>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Quick actions */}
+          <div style={{ padding:"8px 12px 4px", borderTop:"1px solid #2d3748", display:"flex", gap:6, overflowX:"auto", flexShrink:0 }}>
+            {quickActions.map(qa=>(
+              <button key={qa.label} onClick={()=>{ setInput(qa.prompt); }}
+                style={{ background:"#0f1420", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:20, padding:"4px 10px", fontSize:11, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}
+                onMouseEnter={e=>{ e.currentTarget.style.borderColor="#667eea"; e.currentTarget.style.color="#a78bfa"; }}
+                onMouseLeave={e=>{ e.currentTarget.style.borderColor="#2d3748"; e.currentTarget.style.color="#a0aec0"; }}>
+                {qa.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Input */}
+          <div style={{ padding:"10px 12px 14px", display:"flex", gap:8, flexShrink:0 }}>
+            <textarea value={input} onChange={e=>setInput(e.target.value)}
+              placeholder="问我任何问题... Ask me anything"
+              rows={2}
+              onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }}
+              style={{ flex:1, background:"#0f1420", border:"1px solid #2d3748", color:"#e2e8f0", borderRadius:10, padding:"8px 12px", fontSize:13, resize:"none", fontFamily:"inherit", outline:"none", lineHeight:1.5 }} />
+            <button onClick={sendMessage} disabled={loading||!input.trim()}
+              style={{ background: loading||!input.trim() ? "#2d3748":"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", borderRadius:10, padding:"0 14px", cursor: loading||!input.trim()?"not-allowed":"pointer", fontSize:18, flexShrink:0, opacity: loading||!input.trim()?0.5:1 }}>
+              ➤
+            </button>
+          </div>
+
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
@@ -2456,6 +2675,9 @@ export default function App() {
         {curTab==="health"    && <ClientHealth pipeline={pipeline} clients={clients} user={user} />}
         {curTab==="leaderboard" && <TeamLeaderboard pipeline={pipeline} goals={goals} user={user} />}
       </div>
+
+      {/* AI ASSISTANT — floating button, always visible */}
+      <AIAssistant user={user} pipeline={pipeline} tracking={tracking} clients={clients} isSuper={isSuper} />
     </div>
   );
 }
