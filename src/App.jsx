@@ -1919,14 +1919,42 @@ const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const WEEKDAYS_ZH = ["日","一","二","三","四","五","六"];
 const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-function CalendarTodo({ calTeam, calPersonal, user, onAddTeam, onUpdateTeam, onDeleteTeam, onAddPersonal, onUpdatePersonal, onDeletePersonal }) {
+function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdateTeam, onDeleteTeam, onAddPersonal, onUpdatePersonal, onDeletePersonal, onSaveMemo }) {
   const isSuper = user?.role === "admin";
   const today = new Date();
   const todayStr = today.toISOString().slice(0,10);
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-indexed
-  const [selectedDay, setSelectedDay] = useState(null); // "YYYY-MM-DD"
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [selectedDay, setSelectedDay] = useState(null);
   const [dayModal, setDayModal]   = useState(false);
+
+  // Memo sidebar state
+  const [memoViewPerson, setMemoViewPerson] = useState(user.name); // admin can switch
+  const [memoText, setMemoText]   = useState("");
+  const [memoSaving, setMemoSaving] = useState(false);
+  const [memoTimer, setMemoTimer] = useState(null);
+
+  // Load memo text when person changes
+  useEffect(() => {
+    const existing = calMemos.find(m=>m.owner===memoViewPerson);
+    setMemoText(existing?.content || "");
+  }, [memoViewPerson, calMemos]);
+
+  // Auto-save memo with debounce
+  function handleMemoChange(val) {
+    setMemoText(val);
+    if (memoTimer) clearTimeout(memoTimer);
+    const t = setTimeout(async () => {
+      setMemoSaving(true);
+      const existing = calMemos.find(m=>m.owner===memoViewPerson);
+      if (existing) await onSaveMemo(existing._id, { ...existing, content:val });
+      else await onSaveMemo(null, { owner:memoViewPerson, content:val, _owner:memoViewPerson });
+      setMemoSaving(false);
+    }, 1000);
+    setMemoTimer(t);
+  }
+
+  const canEditMemo = isSuper || memoViewPerson === user.name;
 
   // Team announcement form state
   const [teamText, setTeamText]   = useState("");
@@ -1982,7 +2010,10 @@ function CalendarTodo({ calTeam, calPersonal, user, onAddTeam, onUpdateTeam, onD
 
   // For display in cell: show up to 2 items total (team first, then personal)
   return (
-    <div style={{ maxWidth:960, margin:"0 auto" }}>
+    <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
+
+    {/* ── LEFT: CALENDAR ── */}
+    <div style={{ flex:"0 0 auto", width:"calc(100% - 300px)", minWidth:0 }}>
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
         <button onClick={prevMonth} style={{ background:"#1a1f2e", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>‹</button>
@@ -2155,6 +2186,57 @@ function CalendarTodo({ calTeam, calPersonal, user, onAddTeam, onUpdateTeam, onD
         </div>
       )}
     </div>
+
+    {/* ── RIGHT: MEMO SIDEBAR ── */}
+    <div style={{ width:284, flexShrink:0, position:"sticky", top:80, alignSelf:"flex-start" }}>
+      <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:14, overflow:"hidden" }}>
+        <div style={{ padding:"14px 16px 10px", borderBottom:"1px solid #2d3748" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: isSuper ? 10 : 0 }}>
+            <span style={{ fontSize:16 }}>📝</span>
+            <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:14 }}>备忘录 Memo</span>
+            {memoSaving && <span style={{ color:"#4a5568", fontSize:11, marginLeft:"auto" }}>saving...</span>}
+            {!memoSaving && <span style={{ color:"#10b98166", fontSize:11, marginLeft:"auto" }}>✓ saved</span>}
+          </div>
+          {isSuper && (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+              {SALES_MEMBERS.map(name=>(
+                <button key={name} onClick={()=>setMemoViewPerson(name)}
+                  style={{ background:memoViewPerson===name?"#667eea":"#0f1420", color:memoViewPerson===name?"#fff":"#718096", border:`1px solid ${memoViewPerson===name?"#667eea":"#2d3748"}`, borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer", fontWeight:memoViewPerson===name?700:400 }}>
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ padding:"12px 14px" }}>
+          {!isSuper && <div style={{ color:"#4a5568", fontSize:11, marginBottom:8 }}>👤 {user.name} · 只有你和Admin可以看到</div>}
+          {isSuper && memoViewPerson !== user.name && (
+            <div style={{ color:"#f59e0b88", fontSize:11, marginBottom:8 }}>
+              👁️ Viewing {memoViewPerson}'s memo (read-only)
+            </div>
+          )}
+          <textarea
+            value={memoText}
+            onChange={e=>{ if(canEditMemo) handleMemoChange(e.target.value); }}
+            readOnly={!canEditMemo}
+            placeholder={canEditMemo ? "自由填写备忘录...\nFree notes, reminders, ideas..." : ""}
+            style={{
+              width:"100%", minHeight:420, background: canEditMemo ? "#0f1420" : "#0a0d14",
+              border:`1px solid ${canEditMemo?"#2d3748":"#1a1f2e"}`,
+              color: canEditMemo ? "#e2e8f0" : "#718096",
+              borderRadius:8, padding:"10px 12px", fontSize:13,
+              resize:"vertical", fontFamily:"inherit", lineHeight:1.7,
+              outline:"none", boxSizing:"border-box",
+            }}
+          />
+          <div style={{ color:"#2d3748", fontSize:10, marginTop:6, textAlign:"right" }}>
+            {memoText.length} chars · auto-saves
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </div>
   );
 }
 
@@ -2282,8 +2364,9 @@ export default function App() {
   const [followups,fuLoaded]     = useFireCollection("followups");
   const [calTeam,  calTeamLoaded]= useFireCollection("cal_team");
   const [calPersonal, calPersonalLoaded] = useFireCollection("cal_personal");
+  const [calMemos, calMemosLoaded] = useFireCollection("cal_memos");
 
-  const loaded = pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded && fuLoaded && calTeamLoaded && calPersonalLoaded;
+  const loaded = pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded && fuLoaded && calTeamLoaded && calPersonalLoaded && calMemosLoaded;
 
   const isSuper = user?.role === "admin";
 
@@ -2368,7 +2451,7 @@ export default function App() {
         {curTab==="tracking"  && <Tracking  data={tracking} user={user} onAdd={d=>op("tracking","add",d)} onUpdate={(id,d)=>op("tracking","update",{...d,_id:id})} onDelete={id=>fireDelete("tracking",id)} />}
         {curTab==="clients"   && <ClientMgmt data={clients} user={user} onAdd={d=>op("clients2","add",d)} onUpdate={(id,d)=>op("clients2","update",{...d,_id:id})} onDelete={id=>fireDelete("clients2",id)} followups={followups} onAddFollowup={d=>fireAdd("followups",d)} />}
         {curTab==="reports"   && <Reports   data={reports} user={user} onAdd={d=>op("reports","add",d)} onUpdate={(id,d)=>op("reports","update",{...d,_id:id})} onDelete={id=>fireDelete("reports",id)} />}
-        {curTab==="calendar"    && <CalendarTodo calTeam={calTeam} calPersonal={calPersonal} user={user} onAddTeam={d=>fireAdd("cal_team",d)} onUpdateTeam={(id,d)=>fireUpdate("cal_team",id,d)} onDeleteTeam={id=>fireDelete("cal_team",id)} onAddPersonal={d=>fireAdd("cal_personal",d)} onUpdatePersonal={(id,d)=>fireUpdate("cal_personal",id,d)} onDeletePersonal={id=>fireDelete("cal_personal",id)} />}
+        {curTab==="calendar"    && <CalendarTodo calTeam={calTeam} calPersonal={calPersonal} calMemos={calMemos} user={user} onAddTeam={d=>fireAdd("cal_team",d)} onUpdateTeam={(id,d)=>fireUpdate("cal_team",id,d)} onDeleteTeam={id=>fireDelete("cal_team",id)} onAddPersonal={d=>fireAdd("cal_personal",d)} onUpdatePersonal={(id,d)=>fireUpdate("cal_personal",id,d)} onDeletePersonal={id=>fireDelete("cal_personal",id)} onSaveMemo={(id,d)=>id?fireUpdate("cal_memos",id,d):fireAdd("cal_memos",d)} />}
         {curTab==="activity"  && isSuper && <WeeklyActivity pipeline={pipeline} tracking={tracking} reports={reports} />}
         {curTab==="health"    && <ClientHealth pipeline={pipeline} clients={clients} user={user} />}
         {curTab==="leaderboard" && <TeamLeaderboard pipeline={pipeline} goals={goals} user={user} />}
