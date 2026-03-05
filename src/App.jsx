@@ -2423,18 +2423,19 @@ Respond in the same language the user writes in (Chinese or English). Be concise
 3. One quick tip or priority action for today.
 Keep it short and actionable!`;
       try {
-        const res = await fetch("https://flowcolour-ai.javierwu1205.workers.dev/", {
+        const res = await fetch("https://api.deepseek.com/chat/completions", {
           method:"POST",
-          headers:{"Content-Type":"application/json"},
+          headers:{"Content-Type":"application/json","Authorization":"Bearer sk-ecd7d25ce6d340349b95f25a6e0d04e5"},
           body: JSON.stringify({
-            system_instruction:{parts:[{text:systemCtx}]},
-            contents:[{role:"user",parts:[{text:autoPrompt}]}]
+            model:"deepseek-chat",
+            max_tokens:1000,
+            messages:[{ role:"system", content:systemCtx }, { role:"user", content:autoPrompt }]
           })
         });
         const data = await res.json();
         const reply = data.error
           ? `⚠️ API Error: ${data.error.message}`
-          : data.candidates?.[0]?.content?.parts?.[0]?.text || "👋 Hi! I'm ready to help.";
+          : data.choices?.[0]?.message?.content || "👋 Hi! I'm ready to help.";
         setMessages([{ role:"assistant", content: reply }]);
       } catch(e) {
         setMessages([{ role:"assistant", content:`⚠️ Connection error: ${e.message}` }]);
@@ -2451,13 +2452,13 @@ Keep it short and actionable!`;
     setMessages(newMessages);
     setLoading(true);
     try {
-      const geminiMessages = newMessages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
-      const res = await fetch("https://flowcolour-ai.javierwu1205.workers.dev/", {
+      const res = await fetch("https://api.deepseek.com/chat/completions", {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{"Content-Type":"application/json","Authorization":"Bearer sk-ecd7d25ce6d340349b95f25a6e0d04e5"},
         body: JSON.stringify({
-          system_instruction:{parts:[{text:buildContext()}]},
-          contents:geminiMessages
+          model:"deepseek-chat",
+          max_tokens:1000,
+          messages:[{ role:"system", content:buildContext() }, ...newMessages.map(m=>( { role:m.role, content:m.content } ))]
         })
       });
       const data = await res.json();
@@ -2465,7 +2466,7 @@ Keep it short and actionable!`;
         setMessages(prev=>[...prev, { role:"assistant", content:`⚠️ API Error: ${data.error.message}` }]);
         setLoading(false); return;
       }
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't process that.";
+      const reply = data.choices?.[0]?.message?.content || "Sorry, I couldn't process that.";
       setMessages(prev=>[...prev, { role:"assistant", content:reply }]);
     } catch(e) {
       setMessages(prev=>[...prev, { role:"assistant", content:`⚠️ Connection error: ${e.message}` }]);
