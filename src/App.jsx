@@ -2423,18 +2423,17 @@ Respond in the same language the user writes in (Chinese or English). Be concise
 3. One quick tip or priority action for today.
 Keep it short and actionable!`;
       try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method:"POST",
-          headers:{"Content-Type":"application/json"},
+          headers:{"Content-Type":"application/json","Authorization":"Bearer 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"},
           body: JSON.stringify({
-            model:"claude-sonnet-4-20250514",
+            model:"gpt-4o-mini",
             max_tokens:1000,
-            system: systemCtx,
-            messages:[{ role:"user", content:autoPrompt }]
+            messages:[{ role:"system", content:systemCtx },{ role:"user", content:autoPrompt }]
           })
         });
         const data = await res.json();
-        const reply = data.content?.map(c=>c.text||"").join("") || "Hello! I'm ready to help.";
+        const reply = data.choices?.[0]?.message?.content || "Hello! I'm ready to help.";
         setMessages([
           { role:"assistant", content: reply }
         ]);
@@ -2453,18 +2452,17 @@ Keep it short and actionable!`;
     setMessages(newMessages);
     setLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{"Content-Type":"application/json","Authorization":"Bearer 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"},
         body: JSON.stringify({
-          model:"claude-sonnet-4-20250514",
+          model:"gpt-4o-mini",
           max_tokens:1000,
-          system: buildContext(),
-          messages: newMessages.map(m=>({ role:m.role, content:m.content }))
+          messages:[{ role:"system", content:buildContext() },...newMessages.map(m=>({ role:m.role, content:m.content }))]
         })
       });
       const data = await res.json();
-      const reply = data.content?.map(c=>c.text||"").join("") || "Sorry, I couldn't process that.";
+      const reply = data.choices?.[0]?.message?.content || "Sorry, I couldn't process that.";
       setMessages(prev=>[...prev, { role:"assistant", content:reply }]);
     } catch(e) {
       setMessages(prev=>[...prev, { role:"assistant", content:"⚠️ Connection error. Please try again." }]);
