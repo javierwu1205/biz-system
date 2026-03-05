@@ -2423,7 +2423,7 @@ Respond in the same language the user writes in (Chinese or English). Be concise
 3. One quick tip or priority action for today.
 Keep it short and actionable!`;
       try {
-        const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyB0RS7VLBbv9iFvG-AYOYbw3-1iuW1VKTI", {
+        const res = await fetch("https://flowcolour-ai.javierwu1205.workers.dev/", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
           body: JSON.stringify({
@@ -2452,7 +2452,7 @@ Keep it short and actionable!`;
     setLoading(true);
     try {
       const geminiMessages = newMessages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
-      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyB0RS7VLBbv9iFvG-AYOYbw3-1iuW1VKTI", {
+      const res = await fetch("https://flowcolour-ai.javierwu1205.workers.dev/", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
