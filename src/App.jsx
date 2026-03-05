@@ -2423,7 +2423,7 @@ Respond in the same language the user writes in (Chinese or English). Be concise
 3. One quick tip or priority action for today.
 Keep it short and actionable!`;
       try {
-        const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyB0RS7VLBbv9iFvG-AYOYbw3-1iuW1VKTI", {
+        const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyB0RS7VLBbv9iFvG-AYOYbw3-1iuW1VKTI", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
           body: JSON.stringify({
@@ -2432,12 +2432,12 @@ Keep it short and actionable!`;
           })
         });
         const data = await res.json();
-        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Hello! I'm ready to help.";
-        setMessages([
-          { role:"assistant", content: reply }
-        ]);
+        const reply = data.error
+          ? `⚠️ API Error: ${data.error.message}`
+          : data.candidates?.[0]?.content?.parts?.[0]?.text || "👋 Hi! I'm ready to help.";
+        setMessages([{ role:"assistant", content: reply }]);
       } catch(e) {
-        setMessages([{ role:"assistant", content:"👋 Hi "+user.name+"! I'm your AI sales assistant. Ask me anything — analyze your pipeline, draft follow-up emails, or get sales tips!" }]);
+        setMessages([{ role:"assistant", content:`⚠️ Connection error: ${e.message}` }]);
       }
       setLoading(false);
     }
@@ -2452,7 +2452,7 @@ Keep it short and actionable!`;
     setLoading(true);
     try {
       const geminiMessages = newMessages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
-      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyB0RS7VLBbv9iFvG-AYOYbw3-1iuW1VKTI", {
+      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyB0RS7VLBbv9iFvG-AYOYbw3-1iuW1VKTI", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
@@ -2461,10 +2461,14 @@ Keep it short and actionable!`;
         })
       });
       const data = await res.json();
+      if (data.error) {
+        setMessages(prev=>[...prev, { role:"assistant", content:`⚠️ API Error: ${data.error.message}` }]);
+        setLoading(false); return;
+      }
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't process that.";
       setMessages(prev=>[...prev, { role:"assistant", content:reply }]);
     } catch(e) {
-      setMessages(prev=>[...prev, { role:"assistant", content:"⚠️ Connection error. Please try again." }]);
+      setMessages(prev=>[...prev, { role:"assistant", content:`⚠️ Connection error: ${e.message}` }]);
     }
     setLoading(false);
   }
