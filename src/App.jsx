@@ -2423,17 +2423,16 @@ Respond in the same language the user writes in (Chinese or English). Be concise
 3. One quick tip or priority action for today.
 Keep it short and actionable!`;
       try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyB0RS7VLBbv9iFvG-AYOYbw3-1iuW1VKTI", {
           method:"POST",
-          headers:{"Content-Type":"application/json","Authorization":"Bearer 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"},
+          headers:{"Content-Type":"application/json"},
           body: JSON.stringify({
-            model:"gpt-4o-mini",
-            max_tokens:1000,
-            messages:[{ role:"system", content:systemCtx },{ role:"user", content:autoPrompt }]
+            system_instruction:{parts:[{text:systemCtx}]},
+            contents:[{role:"user",parts:[{text:autoPrompt}]}]
           })
         });
         const data = await res.json();
-        const reply = data.choices?.[0]?.message?.content || "Hello! I'm ready to help.";
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Hello! I'm ready to help.";
         setMessages([
           { role:"assistant", content: reply }
         ]);
@@ -2452,17 +2451,17 @@ Keep it short and actionable!`;
     setMessages(newMessages);
     setLoading(true);
     try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const geminiMessages = newMessages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
+      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyB0RS7VLBbv9iFvG-AYOYbw3-1iuW1VKTI", {
         method:"POST",
-        headers:{"Content-Type":"application/json","Authorization":"Bearer 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"},
+        headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
-          model:"gpt-4o-mini",
-          max_tokens:1000,
-          messages:[{ role:"system", content:buildContext() },...newMessages.map(m=>({ role:m.role, content:m.content }))]
+          system_instruction:{parts:[{text:buildContext()}]},
+          contents:geminiMessages
         })
       });
       const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content || "Sorry, I couldn't process that.";
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't process that.";
       setMessages(prev=>[...prev, { role:"assistant", content:reply }]);
     } catch(e) {
       setMessages(prev=>[...prev, { role:"assistant", content:"⚠️ Connection error. Please try again." }]);
