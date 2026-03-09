@@ -95,23 +95,23 @@ const THEMES = {
   },
   light: {
     name:"☀️ 浅色 Light", key:"light",
-    bg:"#f7f8fc", bg2:"#ffffff", bg3:"#eef0f6", bg4:"#e8eaf2",
-    border:"#d1d5db", border2:"#e5e7eb",
-    text:"#1a202c", text2:"#4a5568", text3:"#718096", text4:"#a0aec0",
-    accent:"#7c3aed", accentBg:"#7c3aed18",
-    navBg:"#ffffff", navBorder:"#e5e7eb",
-    cardBg:"#ffffff", rowHover:"#f3f4f6",
+    bg:"#f0f2f8", bg2:"#ffffff", bg3:"#e4e8f2", bg4:"#d8dce8",
+    border:"#b0b8cc", border2:"#c8d0e0",
+    text:"#0d1117", text2:"#1e2a3a", text3:"#374151", text4:"#6b7280",
+    accent:"#5b21b6", accentBg:"#5b21b618",
+    navBg:"#ffffff", navBorder:"#c8d0e0",
+    cardBg:"#ffffff", rowHover:"#eaecf4",
     inputBg:"#ffffff",
   },
   warm: {
     name:"🌅 暖色 Warm", key:"warm",
-    bg:"#fdf6f0", bg2:"#fff9f5", bg3:"#f5ece4", bg4:"#edddd3",
-    border:"#d4b8a8", border2:"#e8d5c8",
-    text:"#2d1810", text2:"#6b4c3b", text3:"#9c7060", text4:"#c4a090",
-    accent:"#c2692a", accentBg:"#c2692a18",
-    navBg:"#fff9f5", navBorder:"#e8d5c8",
-    cardBg:"#fff9f5", rowHover:"#f5ece4",
-    inputBg:"#ffffff",
+    bg:"#fdf0e8", bg2:"#fff8f2", bg3:"#f0e0d0", bg4:"#e4cabb",
+    border:"#c09070", border2:"#d4b090",
+    text:"#1a0a04", text2:"#3d1f10", text3:"#6b3820", text4:"#9c6040",
+    accent:"#b85010", accentBg:"#b8501018",
+    navBg:"#fff8f2", navBorder:"#d4b090",
+    cardBg:"#fff8f2", rowHover:"#f0e0d0",
+    inputBg:"#fff8f2",
   },
   ocean: {
     name:"🌊 海蓝 Ocean", key:"ocean",
@@ -140,36 +140,73 @@ function getTheme() {
 }
 function saveTheme(key) { try { localStorage.setItem("biz_theme", key); } catch(e) {} }
 
-// Inject dynamic CSS based on current theme
+// Global theme store — set by App on every render, read by any component
+const _G = { T: getTheme() };
+function getT() { return _G.T; }
+
+// Inject dynamic CSS based on current theme — covers ALL hardcoded colors
 function ThemeStyle({ T }) {
+  const isLight = T.key==="light"||T.key==="warm";
   const css = `
-    body { background: ${T.bg} !important; color: ${T.text} !important; }
-    input, select, textarea { background: ${T.bg2} !important; color: ${T.text} !important; border-color: ${T.border} !important; color-scheme: ${T.key==="light"||T.key==="warm"?"light":"dark"}; }
-    input::placeholder { color: ${T.text4} !important; }
+    body, #root { background: ${T.bg} !important; color: ${T.text} !important; }
+    input, select, textarea {
+      background: ${T.inputBg} !important;
+      color: ${T.text} !important;
+      border-color: ${T.border} !important;
+      color-scheme: ${isLight?"light":"dark"} !important;
+    }
+    input::placeholder, textarea::placeholder { color: ${T.text4} !important; }
+    option { background: ${T.bg2} !important; color: ${T.text} !important; }
     table th { color: ${T.text3} !important; border-bottom-color: ${T.border} !important; }
-    table td { color: ${T.text2} !important; border-bottom-color: ${T.bg4} !important; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    table td { color: ${T.text2} !important; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
     ::-webkit-scrollbar-track { background: ${T.bg3}; }
-    ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
-    .biz-modal-bg { background: rgba(0,0,0,0.75) !important; }
-    .biz-modal { background: ${T.bg2} !important; border-color: ${T.border} !important; }
-    .biz-card { background: ${T.bg2} !important; border-color: ${T.border} !important; }
-    .biz-row:hover { background: ${T.rowHover} !important; }
-    .biz-input { background: ${T.inputBg} !important; color: ${T.text} !important; border-color: ${T.border} !important; }
-    .biz-nav { background: ${T.navBg} !important; border-color: ${T.navBorder} !important; }
-    .biz-panel { background: ${T.bg3} !important; }
-    .biz-text { color: ${T.text} !important; }
-    .biz-text2 { color: ${T.text2} !important; }
-    .biz-text3 { color: ${T.text3} !important; }
-    .biz-border { border-color: ${T.border} !important; }
-    .biz-bg { background: ${T.bg} !important; }
-    .biz-bg2 { background: ${T.bg2} !important; }
-    .biz-bg3 { background: ${T.bg3} !important; }
+    ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius:3px; }
+    /* Override all hardcoded dark backgrounds in cards/panels */
+    [style*="background: rgb(15, 20, 32)"], [style*='background: rgb(15, 20, 32)'],
+    [style*="background:#0f1420"], [style*='background: #0f1420'] {
+      background: ${T.bg} !important;
+    }
+    [style*="background: rgb(26, 31, 46)"], [style*='background: rgb(26, 31, 46)'],
+    [style*="background:#1a1f2e"], [style*='background: #1a1f2e'] {
+      background: ${T.bg2} !important;
+    }
+    [style*="background: rgb(10, 14, 23)"], [style*='background: rgb(10, 14, 23)'],
+    [style*="background:#0a0e17"], [style*='background: #0a0e17'] {
+      background: ${T.bg3} !important;
+    }
+    [style*="background: rgb(22, 27, 39)"], [style*='background: rgb(22, 27, 39)'],
+    [style*="background:#161b27"], [style*='background: #161b27'] {
+      background: ${T.bg4} !important;
+    }
+    [style*="background: rgb(13, 17, 23)"], [style*='background: rgb(13, 17, 23)'],
+    [style*="background:#0d1117"], [style*='background: #0d1117'] {
+      background: ${T.bg3} !important;
+    }
+    /* Override hardcoded text colors for readability */
+    [style*="color: rgb(203, 213, 224)"], [style*="color:#cbd5e0"] { color: ${T.text} !important; }
+    [style*="color: rgb(160, 174, 192)"], [style*="color:#a0aec0"] { color: ${T.text2} !important; }
+    [style*="color: rgb(113, 128, 150)"], [style*="color:#718096"] { color: ${T.text3} !important; }
+    [style*="color: rgb(74, 85, 104)"], [style*="color:#4a5568"]  { color: ${T.text4} !important; }
+    [style*="color: rgb(226, 232, 240)"], [style*="color:#e2e8f0"] { color: ${T.text} !important; }
+    /* Borders */
+    [style*="border-bottom: 1px solid rgb(22, 27, 39)"] { border-bottom-color: ${T.bg4} !important; }
+    [style*="border: 1px solid rgb(45, 55, 72)"] { border-color: ${T.border} !important; }
+    [style*="border-bottom: 1px solid rgb(45, 55, 72)"] { border-bottom-color: ${T.border} !important; }
+    /* Cards and sections */
+    [style*="background: linear-gradient(135deg, rgb(45, 26, 0)"],
+    [style*="background: linear-gradient(135deg, rgb(61, 34, 0)"] {
+      background: linear-gradient(135deg, ${T.bg3}, ${T.bg4}) !important;
+    }
   `;
   return <style dangerouslySetInnerHTML={{ __html: css }} />;
 }
 
 // ─── STYLES & UI ─────────────────────────────────────────────────────────────
+// Dynamic input styles — always reads current theme
+function IS_fn() { const T=getT(); return { width:"100%", background:T.inputBg, border:`1px solid ${T.border}`, borderRadius:8, color:T.text, padding:"10px 12px", fontSize:14, outline:"none", boxSizing:"border-box" }; }
+function SS_fn() { return { ...IS_fn(), cursor:"pointer" }; }
+// Keep IS/SS as backward-compatible (used inline in many places - will be overridden by ThemeStyle CSS)
 const IS = { width:"100%", background:"#0f1420", border:"1px solid #2d3748", borderRadius:8, color:"#e2e8f0", padding:"10px 12px", fontSize:14, outline:"none", boxSizing:"border-box" };
 const SS = { ...IS, cursor:"pointer" };
 const STATUS_COLORS = {
@@ -182,14 +219,15 @@ function Badge({ status }) {
   return <span style={{ background:c+"22", color:c, border:`1px solid ${c}44`, padding:"2px 10px", borderRadius:20, fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>{status}</span>;
 }
 function Btn({ onClick, children, style={} }) { return <button onClick={onClick} style={{ border:"none", cursor:"pointer", fontWeight:600, borderRadius:8, ...style }}>{children}</button>; }
-function Field({ label, children }) { return <div style={{ marginBottom:16 }}><label style={{ display:"block", color:"#a0aec0", fontSize:13, marginBottom:6, fontWeight:500 }}>{label}</label>{children}</div>; }
+function Field({ label, children }) { const T=getT(); return <div style={{ marginBottom:16 }}><label style={{ display:"block", color:T.text2, fontSize:13, marginBottom:6, fontWeight:500 }}>{label}</label>{children}</div>; }
 function Modal({ title, onClose, children }) {
+  const T = getT();
   return (
-    <div className="biz-modal-bg" style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
-      <div className="biz-modal" style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:600, maxHeight:"90vh", overflowY:"auto" }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
+      <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:16, width:"100%", maxWidth:600, maxHeight:"90vh", overflowY:"auto" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px 0" }}>
-          <h3 style={{ color:"#e2e8f0", fontSize:18, fontWeight:700, margin:0 }}>{title}</h3>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"#718096", fontSize:24, cursor:"pointer" }}>×</button>
+          <h3 style={{ color:T.text, fontSize:18, fontWeight:700, margin:0 }}>{title}</h3>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:T.text3, fontSize:24, cursor:"pointer" }}>×</button>
         </div>
         <div style={{ padding:"16px 24px 24px" }}>{children}</div>
       </div>
@@ -197,28 +235,29 @@ function Modal({ title, onClose, children }) {
   );
 }
 function DataTable({ headers, rows, onEdit, onDelete, canEdit }) {
+  const T = getT();
   return (
     <div style={{ overflowX:"auto" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, tableLayout:"fixed" }}>
         <thead><tr>
-          {headers.map(h => <th key={h} style={{ textAlign:"left", padding:"10px 10px", color:"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{h}</th>)}
-          <th style={{ padding:"10px 10px", color:"#718096", fontSize:11, borderBottom:"1px solid #2d3748", width:100 }}>Actions</th>
+          {headers.map(h => <th key={h} style={{ textAlign:"left", padding:"10px 10px", color:T.text3, fontWeight:600, fontSize:11, borderBottom:`1px solid ${T.border}`, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{h}</th>)}
+          <th style={{ padding:"10px 10px", color:T.text3, fontSize:11, borderBottom:`1px solid ${T.border}`, width:100 }}>Actions</th>
         </tr></thead>
         <tbody>
           {rows.length === 0
-            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
+            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:T.text4 }}>No data yet</td></tr>
             : rows.map((row, i) => (
-              <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
-                onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
+              <tr key={i} style={{ borderBottom:`1px solid ${T.bg4}` }}
+                onMouseEnter={e=>e.currentTarget.style.background=T.rowHover}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
-                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:"#cbd5e0", verticalAlign:"middle" }}>
+                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:T.text2, verticalAlign:"middle" }}>
                   {h==="Status"||h==="Stage" ? <Badge status={row[h]} /> : row[h]}
                 </td>)}
                 <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
                   {(canEdit ? canEdit(row) : true)
-                    ? <><Btn onClick={()=>onEdit(i)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
+                    ? <><Btn onClick={()=>onEdit(i)} style={{ background:T.bg4, color:T.text2, padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
                        <Btn onClick={()=>onDelete(i)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn></>
-                    : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
+                    : <span style={{ color:T.text4, fontSize:12 }}>—</span>}
                 </td>
               </tr>
             ))}
@@ -236,6 +275,32 @@ function exportCSV(data, filename, cols) {
   const blob = new Blob([bom+header+"\n"+rows.join("\n")], { type:"text/csv;charset=utf-8;" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename+".csv"; a.click();
 }
+
+function exportFullBackup(pipeline, tracking, clients, reports, followups, calTeam, calPersonal, calMemos) {
+  const date = new Date().toISOString().slice(0,10);
+  const sections = [
+    { name:"Pipeline 报价", data:pipeline, cols:["Date","Client","Region","Country","Currency","Amount","Cost","Stage","Prob","Sales","Status","Followup","Notes"] },
+    { name:"Tracking 客户开发", data:tracking, cols:["Date","Client","Region","Country","Source","Industry","Status","Sales","Notes"] },
+    { name:"Clients 客户管理", data:clients, cols:["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Notes"] },
+    { name:"Reports 工作汇报", data:reports, cols:["Date","Sales","Content","KPI","Clients","Orders"] },
+    { name:"FollowUps 跟进记录", data:followups, cols:["date","client","note","sales"] },
+    { name:"CalTeam 团队日历", data:calTeam, cols:["date","title","desc","color","owner"] },
+    { name:"CalPersonal 个人日历", data:calPersonal, cols:["date","title","desc","color","owner"] },
+    { name:"CalMemos 备忘录", data:calMemos, cols:["date","title","content","owner"] },
+  ];
+  const bom = "\uFEFF";
+  let full = `FLOWCOLOUR BIZ SYSTEM — FULL DATA BACKUP\nGenerated: ${new Date().toLocaleString()}\nTotal records: ${sections.reduce((s,x)=>s+(x.data||[]).length,0)}\n\n`;
+  sections.forEach(sec => {
+    const rows = sec.data || [];
+    full += `\n===== ${sec.name} (${rows.length} records) =====\n`;
+    full += sec.cols.join(",") + "\n";
+    rows.forEach(r => {
+      full += sec.cols.map(c => `"${String(r[c]||"").replace(/"/g,"'").replace(/\n/g," ")}"`).join(",") + "\n";
+    });
+  });
+  const blob = new Blob([bom+full], { type:"text/csv;charset=utf-8;" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `FlowcolourBackup_${date}.csv`; a.click();
+}
 function exportPDF(data, filename, cols, title) {
   const w = window.open("","_blank");
   if (!w) return alert("Please allow popups");
@@ -252,6 +317,7 @@ function exportPDF(data, filename, cols, title) {
 
 // ─── STYLED DATE INPUT ────────────────────────────────────────────────────────
 function DateInput({ value, onChange, placeholder }) {
+  const T = getT();
   return (
     <input
       type="date"
@@ -260,11 +326,11 @@ function DateInput({ value, onChange, placeholder }) {
       title={placeholder}
       style={{
         ...IS, width:160,
-        background:"#1a1f2e",
-        border:"1px solid #4a3f6b",
+        background:T.inputBg,
+        border:`1px solid ${T.border}`,
         borderRadius:8,
-        color:"#e2e8f0",
-        colorScheme:"dark",
+        color:T.text,
+        colorScheme:T.key==="light"||T.key==="warm"?"light":"dark",
         cursor:"pointer",
         fontSize:13,
       }}
@@ -274,22 +340,23 @@ function DateInput({ value, onChange, placeholder }) {
 
 // ─── FILTER BAR ───────────────────────────────────────────────────────────────
 function FilterBar({ isSuper, filters, setFilters, showPerson=true, showRegion=true, showDate=true, dateField="Date" }) {
+  const T = getT();
   const countries = filters.region ? (COUNTRIES_BY_REGION[filters.region]||[]) : [];
   return (
-    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14, padding:"10px 14px", background:"#0a0e17", borderRadius:10, border:"1px solid #1e2433", alignItems:"center" }}>
+    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14, padding:"10px 14px", background:T.bg3, borderRadius:10, border:`1px solid ${T.border2}`, alignItems:"center" }}>
       {isSuper && showPerson && (
-        <select style={{ ...SS, width:"auto", minWidth:120 }} value={filters.person||""} onChange={e=>setFilters(p=>({...p, person:e.target.value}))}>
+        <select style={{ ...SS, width:"auto", minWidth:120, background:T.inputBg, color:T.text, borderColor:T.border }} value={filters.person||""} onChange={e=>setFilters(p=>({...p, person:e.target.value}))}>
           <option value="">All Sales</option>
           {SALES_MEMBERS.map(m=><option key={m} value={m}>{m}</option>)}
         </select>
       )}
       {showRegion && <>
-        <select style={{ ...SS, width:"auto", minWidth:140 }} value={filters.region||""} onChange={e=>setFilters(p=>({...p, region:e.target.value, country:""}))}>
+        <select style={{ ...SS, width:"auto", minWidth:140, background:T.inputBg, color:T.text, borderColor:T.border }} value={filters.region||""} onChange={e=>setFilters(p=>({...p, region:e.target.value, country:""}))}>
           <option value="">All Regions</option>
           {REGIONS_EN.map(r=><option key={r} value={r}>{r}</option>)}
         </select>
         {filters.region && (
-          <select style={{ ...SS, width:"auto", minWidth:140 }} value={filters.country||""} onChange={e=>setFilters(p=>({...p, country:e.target.value}))}>
+          <select style={{ ...SS, width:"auto", minWidth:140, background:T.inputBg, color:T.text, borderColor:T.border }} value={filters.country||""} onChange={e=>setFilters(p=>({...p, country:e.target.value}))}>
             <option value="">All Countries</option>
             {countries.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
@@ -301,7 +368,7 @@ function FilterBar({ isSuper, filters, setFilters, showPerson=true, showRegion=t
         <DateInput value={filters.dateTo} onChange={e=>setFilters(p=>({...p, dateTo:e.target.value}))} placeholder="To date" />
       </>}
       {(filters.person||filters.region||filters.dateFrom||filters.dateTo) && (
-        <Btn onClick={()=>setFilters({})} style={{ background:"#2d3748", color:"#a0aec0", padding:"8px 12px", fontSize:12 }}>✕ Clear</Btn>
+        <Btn onClick={()=>setFilters({})} style={{ background:T.bg4, color:T.text2, border:`1px solid ${T.border}`, padding:"8px 12px", fontSize:12 }}>✕ Clear</Btn>
       )}
     </div>
   );
@@ -431,6 +498,7 @@ function LoginScreen({ onLogin }) {
 
 // ─── TRACKING 客户开发跟踪 ────────────────────────────────────────────────────
 function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
+  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -457,7 +525,7 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} records</div>
+        <div style={{ color:T.text2, fontSize:14 }}><b style={{ color:T.text }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} records</div>
         <div style={{ display:"flex", gap:8 }}>
           <Btn onClick={()=>exportCSV(filtered,"Tracking_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
           <Btn onClick={()=>exportPDF(filtered,"Tracking",exportCols,"Tracking 客户开发跟踪 — Flowcolour")} style={{ background:"#1e2a3a", color:"#60a5fa", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
@@ -513,9 +581,9 @@ function FollowUpBanner({ pipeline, user, onJump, T }) {
   const mine = isSuper ? pipeline : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
   const due = mine.filter(d => d.FollowUpDate && d.FollowUpDate <= today && d.Stage !== "Order" && d.NextAction !== "Closed – Lost" && d.NextAction !== "Completed");
   if (due.length === 0) return null;
-  const bg = T ? `linear-gradient(135deg,${T.bg3},${T.bg4})` : "linear-gradient(135deg,#2d1a00,#3d2200)";
+  const T2 = T || getT(); const bg = `linear-gradient(135deg,${T2.bg3},${T2.bg4})`;
   return (
-    <div style={{ background:bg, border:"1px solid #f59e0b55", borderRadius:12, padding:"14px 18px", marginBottom:20 }}>
+    <div style={{ background:bg, border:`1px solid #f59e0b55`, borderRadius:12, padding:"14px 18px", marginBottom:20 }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
         <span style={{ fontSize:20 }}>🔔</span>
         <span style={{ color:"#f59e0b", fontWeight:700, fontSize:15 }}>Follow-up Due 追踪提醒</span>
@@ -939,6 +1007,7 @@ function PdfMigrationTool({ pipeline }) { return null; }
 // Each row object should have _sort_<header> keys for sortable columns.
 // Falls back to row[header] if no _sort_ key exists.
 function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={}, highlightId }) {
+  const T = getT();
   const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
   const [sortDir, setSortDir] = useState(sortDesc ? "desc" : "asc");
 
@@ -990,24 +1059,24 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
         </tr></thead>
         <tbody>
           {sorted.length === 0
-            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
+            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:T.text4 }}>No data yet</td></tr>
             : sorted.map((row, i) => {
               const origIdx = row._editIdx !== undefined ? row._editIdx : i;
               const isHighlighted = highlightId && row._id === highlightId;
               return (
               <tr key={row._id || i}
                 ref={isHighlighted ? (node => { if(node) node.scrollIntoView({behavior:"smooth",block:"center"}); }) : null}
-                style={{ borderBottom:"1px solid #161b27", background:isHighlighted?"#f59e0b22":"", outline:isHighlighted?"2px solid #f59e0b":"", transition:"all 0.3s" }}
-                onMouseEnter={e=>{ if(!isHighlighted) e.currentTarget.style.background="#1e2433"; }}
+                style={{ borderBottom:`1px solid ${T.bg4}`, background:isHighlighted?"#f59e0b22":"", outline:isHighlighted?"2px solid #f59e0b":"", transition:"all 0.3s" }}
+                onMouseEnter={e=>{ if(!isHighlighted) e.currentTarget.style.background=T.rowHover; }}
                 onMouseLeave={e=>{ if(!isHighlighted) e.currentTarget.style.background=""; }}>
-                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:"#cbd5e0", verticalAlign:"middle" }}>
+                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:T.text2, verticalAlign:"middle" }}>
                   {h==="Stage" ? <Badge status={row[h]} /> : row[h]}
                 </td>)}
                 <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
                   {(canEdit ? canEdit(row) : true)
-                    ? <><Btn onClick={()=>onEdit(origIdx)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
+                    ? <><Btn onClick={()=>onEdit(origIdx)} style={{ background:T.bg4, color:T.text2, padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
                        <Btn onClick={()=>onDelete(origIdx)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn></>
-                    : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
+                    : <span style={{ color:T.text4, fontSize:12 }}>—</span>}
                 </td>
               </tr>
             );})}
@@ -1106,6 +1175,7 @@ function ClientOwnerSearch({ allClients }) {
 
 // ─── CLIENT MANAGEMENT 客户管理 ────────────────────────────────────────────────
 function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFollowup }) {
+  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -1179,7 +1249,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
       <ClientOwnerSearch allClients={data} />
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} clients</div>
+        <div style={{ color:T.text2, fontSize:14 }}><b style={{ color:T.text }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} clients</div>
         <div style={{ display:"flex", gap:8 }}>
           <Btn onClick={()=>exportCSV(filtered,"Clients_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
           <Btn onClick={()=>exportPDF(filtered,"Clients",exportCols,"Client Management 客户管理 — Flowcolour")} style={{ background:"#1e2a3a", color:"#60a5fa", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
@@ -2699,6 +2769,9 @@ export default function App() {
     setShowThemePicker(false);
   }
 
+  // Keep global theme in sync
+  _G.T = T;
+
   function jumpToPipeline(itemId) {
     // find pipeline tab index
     const idx = tabs.findIndex(t => t.key === "pipeline");
@@ -2778,6 +2851,13 @@ export default function App() {
                 <span style={{ color:T.text, fontSize:14, fontWeight:600 }}>{user.name}</span>
                 <span style={{ background:isSuper?T.accentBg:T.bg4, color:isSuper?T.accent:T.text3, fontSize:11, padding:"2px 8px", borderRadius:8, fontWeight:600 }}>{isSuper?"Admin":"Sales"}</span>
               </div>
+              {isSuper && (
+                <Btn onClick={()=>exportFullBackup(pipeline,tracking,clients,reports,followups,calTeam,calPersonal,calMemos)}
+                  style={{ background:T.bg2, border:`1px solid ${T.border}`, color:"#10b981", padding:"8px 12px", fontSize:12 }}
+                  title="Download full data backup 下载完整数据备份">
+                  💾 Backup
+                </Btn>
+              )}
               <Btn onClick={()=>setShowPwd(true)} style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.accent, padding:"8px 12px", fontSize:12 }}>🔐 Password</Btn>
               {/* Theme picker */}
               <div style={{ position:"relative" }}>
