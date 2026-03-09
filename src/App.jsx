@@ -140,6 +140,35 @@ function getTheme() {
 }
 function saveTheme(key) { try { localStorage.setItem("biz_theme", key); } catch(e) {} }
 
+// Inject dynamic CSS based on current theme
+function ThemeStyle({ T }) {
+  const css = `
+    body { background: ${T.bg} !important; color: ${T.text} !important; }
+    input, select, textarea { background: ${T.bg2} !important; color: ${T.text} !important; border-color: ${T.border} !important; color-scheme: ${T.key==="light"||T.key==="warm"?"light":"dark"}; }
+    input::placeholder { color: ${T.text4} !important; }
+    table th { color: ${T.text3} !important; border-bottom-color: ${T.border} !important; }
+    table td { color: ${T.text2} !important; border-bottom-color: ${T.bg4} !important; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: ${T.bg3}; }
+    ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
+    .biz-modal-bg { background: rgba(0,0,0,0.75) !important; }
+    .biz-modal { background: ${T.bg2} !important; border-color: ${T.border} !important; }
+    .biz-card { background: ${T.bg2} !important; border-color: ${T.border} !important; }
+    .biz-row:hover { background: ${T.rowHover} !important; }
+    .biz-input { background: ${T.inputBg} !important; color: ${T.text} !important; border-color: ${T.border} !important; }
+    .biz-nav { background: ${T.navBg} !important; border-color: ${T.navBorder} !important; }
+    .biz-panel { background: ${T.bg3} !important; }
+    .biz-text { color: ${T.text} !important; }
+    .biz-text2 { color: ${T.text2} !important; }
+    .biz-text3 { color: ${T.text3} !important; }
+    .biz-border { border-color: ${T.border} !important; }
+    .biz-bg { background: ${T.bg} !important; }
+    .biz-bg2 { background: ${T.bg2} !important; }
+    .biz-bg3 { background: ${T.bg3} !important; }
+  `;
+  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+}
+
 // ─── STYLES & UI ─────────────────────────────────────────────────────────────
 const IS = { width:"100%", background:"#0f1420", border:"1px solid #2d3748", borderRadius:8, color:"#e2e8f0", padding:"10px 12px", fontSize:14, outline:"none", boxSizing:"border-box" };
 const SS = { ...IS, cursor:"pointer" };
@@ -156,8 +185,8 @@ function Btn({ onClick, children, style={} }) { return <button onClick={onClick}
 function Field({ label, children }) { return <div style={{ marginBottom:16 }}><label style={{ display:"block", color:"#a0aec0", fontSize:13, marginBottom:6, fontWeight:500 }}>{label}</label>{children}</div>; }
 function Modal({ title, onClose, children }) {
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
-      <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:600, maxHeight:"90vh", overflowY:"auto" }}>
+    <div className="biz-modal-bg" style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
+      <div className="biz-modal" style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:600, maxHeight:"90vh", overflowY:"auto" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px 0" }}>
           <h3 style={{ color:"#e2e8f0", fontSize:18, fontWeight:700, margin:0 }}>{title}</h3>
           <button onClick={onClose} style={{ background:"none", border:"none", color:"#718096", fontSize:24, cursor:"pointer" }}>×</button>
@@ -1091,7 +1120,37 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
   const filtered = applyFilters(visible, filters, "LastContact");
   const exportCols = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Notes"];
   const headers = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact"];
-  const rows = filtered.map((d,idx)=>({...d, _editIdx:idx, _sortLastContact: typeof d.LastContact==="string"?d.LastContact:String(d.LastContact||""), _canEdit:isSuper||d._owner===user.name}));
+  const rows = filtered.map((d,idx)=>({
+    ...d,
+    _editIdx: idx,
+    _sortLastContact: typeof d.LastContact==="string"?d.LastContact:String(d.LastContact||""),
+    _sortClient: (d.Client||"").toLowerCase(),
+    _sortRegion: (d.Region||"").toLowerCase(),
+    _sortCountry: (d.Country||"").toLowerCase(),
+    _sortStatus: (d.Status||"").toLowerCase(),
+    _sortSales: (d.Sales||"").toLowerCase(),
+    _canEdit: isSuper||d._owner===user.name,
+    // Display-ready cells for SortableTable
+    "Client_cell": <span style={{ color:"#a78bfa", fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}
+      onClick={()=>setHistoryClient(historyClient===d.Client?null:d.Client)}>
+      {d.Client} <span style={{ color:"#4a5568", fontSize:10 }}>📋</span>
+    </span>,
+    "Phone_cell": <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <span>{d.Phone||"—"}</span>
+      {d.Phone && <a href={`https://wa.me/${d.Phone.replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer"
+        onClick={e=>e.stopPropagation()}
+        style={{ background:"#1a3a1a", border:"1px solid #10b98133", color:"#10b981", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap" }}>💬 WA</a>}
+    </div>,
+    "Email_cell": <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <span style={{ maxWidth:150, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block" }}>{d.Email||"—"}</span>
+      {d.Email && <a href="#" onClick={e=>{e.preventDefault();e.stopPropagation();window.open(`https://qiye.aliyun.com/alimail/compose?to=${encodeURIComponent(d.Email)}`,"_blank");}}
+        style={{ background:"#1a2a3a", border:"1px solid #3b82f633", color:"#60a5fa", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap", cursor:"pointer" }}>✉️ Mail</a>}
+    </div>,
+  }));
+  const clientSortKeyMap = {
+    "Client":"_sortClient", "Region":"_sortRegion", "Country":"_sortCountry",
+    "Status":"_sortStatus", "Sales":"_sortSales", "LastContact":"_sortLastContact",
+  };
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
 
   function checkDuplicate(name) {
@@ -1174,64 +1233,27 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
         );
       })()}
 
-      {/* Client table with WhatsApp + Email buttons */}
-      <div style={{ overflowX:"auto" }}>
-        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-          <thead><tr>
-            {["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Actions"].map(h=>(
-              <th key={h} style={{ textAlign:"left", padding:"10px 10px", color:"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>
-            ))}
-          </tr></thead>
-          <tbody>
-            {filtered.map((d,i) => (
-              <tr key={d._id||i} style={{ borderBottom:"1px solid #161b27" }}
-                onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
-                onMouseLeave={e=>e.currentTarget.style.background=""}>
-                <td style={{ padding:"9px 10px", color:"#a78bfa", fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}
-                  onClick={()=>setHistoryClient(historyClient===d.Client?null:d.Client)}>
-                  {d.Client} <span style={{ color:"#4a5568", fontSize:10 }}>📋</span>
-                </td>
-                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>{d.Contact||"—"}</td>
-                <td style={{ padding:"9px 10px", color:"#cbd5e0", whiteSpace:"nowrap" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <span>{d.Phone||"—"}</span>
-                    {d.Phone && (
-                      <a href={`https://wa.me/${d.Phone.replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer"
-                        onClick={e=>e.stopPropagation()}
-                        style={{ background:"#1a3a1a", border:"1px solid #10b98133", color:"#10b981", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap" }}>
-                        💬 WA
-                      </a>
-                    )}
-                  </div>
-                </td>
-                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block" }}>{d.Email||"—"}</span>
-                    {d.Email && (
-                      <a href="#" onClick={e=>{e.preventDefault();e.stopPropagation();window.open(`https://qiye.aliyun.com/alimail/compose?to=${encodeURIComponent(d.Email)}`,"_blank");}}
-                        style={{ background:"#1a2a3a", border:"1px solid #3b82f633", color:"#60a5fa", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap", cursor:"pointer" }}>
-                        ✉️ Mail
-                      </a>
-                    )}
-                  </div>
-                </td>
-                <td style={{ padding:"9px 10px", color:"#a0aec0" }}>{d.Region||"—"}</td>
-                <td style={{ padding:"9px 10px", color:"#718096", fontSize:11 }}>{d.Country||"—"}</td>
-                <td style={{ padding:"9px 10px" }}><Badge status={d.Status||"Pending"} /></td>
-                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>{d.Sales||"—"}</td>
-                <td style={{ padding:"9px 10px", color:"#f59e0b", fontSize:12, whiteSpace:"nowrap" }}>{d.LastContact||"—"}</td>
-                <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
-                  {(isSuper||d._owner===user.name) ? <>
-                    <Btn onClick={()=>openEdit(i)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
-                    <Btn onClick={()=>del(i)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn>
-                  </> : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <tr><td colSpan={10} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No clients found</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      {/* Client table with sorting + WhatsApp + Email buttons */}
+      <SortableTable
+        headers={["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact"]}
+        rows={rows.map(r => ({
+          ...r,
+          Client: r["Client_cell"],
+          Phone: r["Phone_cell"],
+          Email: r["Email_cell"],
+          Region: r.Region||"—",
+          Country: r.Country||"—",
+          Status: <Badge status={r.Status||"Pending"} />,
+          Sales: r.Sales||"—",
+          LastContact: <span style={{ color:"#f59e0b", fontSize:12, whiteSpace:"nowrap" }}>{r.LastContact||"—"}</span>,
+        }))}
+        onEdit={i => openEdit(rows[i]?._editIdx ?? i)}
+        onDelete={i => del(rows[i]?._editIdx ?? i)}
+        canEdit={r => isSuper || r._owner === user.name}
+        defaultSort="LastContact"
+        sortDesc={true}
+        sortKeyMap={clientSortKeyMap}
+      />
 
       {modal && <Modal title={editItem?"Edit Client":"New Client 新增客户"} onClose={()=>{setModal(false);setDupWarning(null);}}>
         <Field label="Client 公司名称">
@@ -2756,7 +2778,7 @@ export default function App() {
                 <span style={{ color:T.text, fontSize:14, fontWeight:600 }}>{user.name}</span>
                 <span style={{ background:isSuper?T.accentBg:T.bg4, color:isSuper?T.accent:T.text3, fontSize:11, padding:"2px 8px", borderRadius:8, fontWeight:600 }}>{isSuper?"Admin":"Sales"}</span>
               </div>
-              <Btn onClick={()=>setShowPwd(true)} style={{ background:"#1a2a1a", color:"#68d391", padding:"8px 12px", fontSize:12 }}>🔐 Password</Btn>
+              <Btn onClick={()=>setShowPwd(true)} style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.accent, padding:"8px 12px", fontSize:12 }}>🔐 Password</Btn>
               {/* Theme picker */}
               <div style={{ position:"relative" }}>
                 <button onClick={()=>setShowThemePicker(p=>!p)} title="切换主题 Theme" style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, padding:"8px 12px", borderRadius:8, cursor:"pointer", fontSize:14 }}>🎨</button>
@@ -2785,7 +2807,7 @@ export default function App() {
       </div>
 
       {/* CONTENT */}
-      <div style={{ padding:"20px 24px" }}>
+      <div style={{ padding:"20px 24px", background:T.bg, minHeight:"calc(100vh - 120px)" }}>
         {/* Global follow-up reminder — shows on all tabs */}
         {curTab !== "pipeline" && <FollowUpBanner pipeline={pipeline} user={user} onJump={jumpToPipeline} T={T} />}
         {curTab==="dashboard" && isSuper && <SalesDashboard pipeline={pipeline} tracking={tracking} clients={clients} reports={reports} goals={goals} onGoalSave={(id,d)=>id?fireUpdate("goals",id,d):fireAdd("goals",d)} />}
