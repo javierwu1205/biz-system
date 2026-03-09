@@ -581,7 +581,11 @@ function FollowUpBanner({ pipeline, user, onJump, T }) {
   const mine = isSuper ? pipeline : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
   const due = mine.filter(d => d.FollowUpDate && d.FollowUpDate <= today && d.Stage !== "Order" && d.NextAction !== "Closed – Lost" && d.NextAction !== "Completed");
   if (due.length === 0) return null;
-  const T2 = T || getT(); const bg = `linear-gradient(135deg,${T2.bg3},${T2.bg4})`;
+  const T2 = T || getT(); 
+  const isLight = T2.key==="light"||T2.key==="warm";
+  const bg = isLight 
+    ? "linear-gradient(135deg,#fef3c7,#fde68a)" 
+    : `linear-gradient(135deg,${T2.bg3},${T2.bg4})`;
   return (
     <div style={{ background:bg, border:`1px solid #f59e0b55`, borderRadius:12, padding:"14px 18px", marginBottom:20 }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
@@ -689,7 +693,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
         if (inlineEditId === d._id) {
           return <div onClick={e=>e.stopPropagation()} style={{ display:"flex", gap:4, alignItems:"center" }}>
             <input type="date" value={inlineDate} onChange={e=>setInlineDate(e.target.value)}
-              style={{ background:"#1a1f2e", border:"1px solid #667eea", color:"#e2e8f0", borderRadius:6, padding:"3px 6px", fontSize:11, colorScheme:"dark" }} />
+              style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:"3px 6px", fontSize:11 }} />
             <button onClick={async()=>{ await onUpdate(d._id,{...d,FollowUpDate:inlineDate}); setInlineEditId(null); }}
               style={{ background:"#10b981", border:"none", color:"#fff", borderRadius:5, padding:"3px 7px", cursor:"pointer", fontSize:11 }}>✓</button>
             <button onClick={()=>setInlineEditId(null)}
@@ -793,7 +797,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
       {/* PDF Viewer */}
       {pdfViewer && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.9)", zIndex:2000, display:"flex", flexDirection:"column" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px", background:"#1a1f2e", borderBottom:"1px solid #2d3748" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px", background:T.bg2, borderBottom:`1px solid ${T.border}` }}>
             <span style={{ color:"#e2e8f0", fontWeight:600 }}>📄 {pdfViewer.name}</span>
             <button onClick={()=>setPdfViewer(null)} style={{ background:"#3d1515", border:"none", color:"#fc8181", padding:"6px 14px", borderRadius:8, cursor:"pointer" }}>✕ Close</button>
           </div>
@@ -804,7 +808,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
       {/* Client Summary Modal */}
       {clientSummary && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:720, maxHeight:"85vh", overflowY:"auto" }}>
+          <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:16, width:"100%", maxWidth:720, maxHeight:"85vh", overflowY:"auto" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px 0" }}>
               <h3 style={{ color:"#e2e8f0", fontSize:18, fontWeight:700, margin:0 }}>📊 {clientSummary} — Client Summary</h3>
               <button onClick={()=>setClientSummary(null)} style={{ background:"none", border:"none", color:"#718096", fontSize:24, cursor:"pointer" }}>×</button>
@@ -817,7 +821,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
                   ["🔄 Pending Quotes 报价中", summaryPending.length, summaryTotalPending.toLocaleString(), "#f59e0b"],
                   ["📦 Total Deals 总记录", summaryDeals.length, (summaryTotalOrdered+summaryTotalPending).toLocaleString(), "#a78bfa"],
                 ].map(([label,cnt,amt,color])=>(
-                  <div key={label} style={{ background:"#0f1420", borderRadius:12, padding:"14px 16px", textAlign:"center" }}>
+                  <div key={label} style={{ background:T.bg3, borderRadius:12, padding:"14px 16px", textAlign:"center" }}>
                     <div style={{ color:"#718096", fontSize:11, marginBottom:6 }}>{label}</div>
                     <div style={{ color, fontSize:24, fontWeight:800 }}>{cnt}</div>
                     <div style={{ color:"#a0aec0", fontSize:13, marginTop:2 }}>{amt}</div>
@@ -833,7 +837,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
                     <thead><tr>{["Date","Amount","Currency","Cost","Profit","Sales","Notes"].map(h=><th key={h} style={{ textAlign:"left", padding:"7px 10px", color:"#718096", borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>)}</tr></thead>
                     <tbody>{summaryOrders.sort((a,b)=>b.Date>a.Date?1:-1).map((d,i)=>{
                       const {p,pct,pos}=profit(d.Amount,d.Cost);
-                      return <tr key={i} style={{ borderBottom:"1px solid #161b27" }}>
+                      return <tr key={i} style={{ borderBottom:`1px solid ${T.bg4}` }}>
                         <td style={{ padding:"7px 10px", color:"#cbd5e0" }}>{d.Date}</td>
                         <td style={{ padding:"7px 10px", color:"#10b981", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</td>
                         <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Currency}</td>
@@ -854,7 +858,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
                   <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                     <thead><tr>{["Date","Amount","Currency","Stage","Probability","NextAction","Sales"].map(h=><th key={h} style={{ textAlign:"left", padding:"7px 10px", color:"#718096", borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>)}</tr></thead>
                     <tbody>{summaryPending.sort((a,b)=>b.Date>a.Date?1:-1).map((d,i)=>(
-                      <tr key={i} style={{ borderBottom:"1px solid #161b27" }}>
+                      <tr key={i} style={{ borderBottom:`1px solid ${T.bg4}` }}>
                         <td style={{ padding:"7px 10px", color:"#cbd5e0" }}>{d.Date}</td>
                         <td style={{ padding:"7px 10px", color:"#f59e0b", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</td>
                         <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Currency}</td>
@@ -900,10 +904,10 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
               onFocus={()=>setShowClientDrop(true)}
               placeholder="Type to search clients from your list..." />
             {showClientDrop && clientSuggestions.length > 0 && (
-              <div style={{ position:"absolute", top:"100%", left:0, right:0, background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:8, zIndex:200, maxHeight:200, overflowY:"auto", marginTop:2 }}>
+              <div style={{ position:"absolute", top:"100%", left:0, right:0, background:T.bg2, border:`1px solid ${T.border}`, borderRadius:8, zIndex:200, maxHeight:200, overflowY:"auto", marginTop:2 }}>
                 {clientSuggestions.map((c,i)=>(
                   <div key={i} onClick={()=>selectClient(c)}
-                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:"1px solid #161b27" }}
+                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${T.bg4}` }}
                     onMouseEnter={e=>e.currentTarget.style.background="#2d3748"}
                     onMouseLeave={e=>e.currentTarget.style.background=""}>
                     <div style={{ color:"#e2e8f0", fontWeight:600, fontSize:14 }}>🏢 {c.Client}</div>
@@ -968,7 +972,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
             </div>
           ) : (form.pdfUrl || form.pdfData) ? (
             // Existing PDF (Storage URL or legacy base64)
-            <div style={{ display:"flex", alignItems:"center", gap:10, background:"#0f1420", border:"1px solid #2d3748", borderRadius:8, padding:"10px 14px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, background:T.bg3, border:`1px solid ${T.border}`, borderRadius:8, padding:"10px 14px" }}>
               <span style={{ color:"#a78bfa", fontSize:13 }}>📄 {form.pdfName || "Existing PDF"}</span>
               {form.pdfUrl && <a href={form.pdfUrl} target="_blank" rel="noreferrer" style={{ color:"#60a5fa", fontSize:12, marginLeft:4 }}>View ↗</a>}
               <div style={{ marginLeft:"auto", display:"flex", gap:8 }}>
@@ -981,7 +985,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
             </div>
           ) : (
             // No PDF
-            <label style={{ display:"flex", alignItems:"center", gap:10, background:"#0f1420", border:"2px dashed #2d3748", borderRadius:8, padding:14, cursor:"pointer" }}>
+            <label style={{ display:"flex", alignItems:"center", gap:10, background:T.bg3, border:`2px dashed ${T.border}`, borderRadius:8, padding:14, cursor:"pointer" }}>
               <span style={{ fontSize:22 }}>📎</span>
               <span style={{ color:"#718096", fontSize:13 }}>Click to upload PDF quotation (stored in Firebase Storage)</span>
               <input type="file" accept=".pdf" onChange={handlePdf} style={{ display:"none" }} />
@@ -1263,7 +1267,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
       {historyClient && (() => {
         const clientFollowups = (followups||[]).filter(f=>f.client===historyClient).sort((a,b)=>b.date>a.date?1:-1);
         return (
-          <div style={{ background:"#0d1117", border:"1px solid #667eea44", borderRadius:14, padding:"18px 20px", marginBottom:16 }}>
+          <div style={{ background:T.bg3, border:"1px solid #667eea44", borderRadius:14, padding:"18px 20px", marginBottom:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
               <div>
                 <span style={{ color:"#a78bfa", fontWeight:700, fontSize:15 }}>📋 Follow-up History — {historyClient}</span>
@@ -1292,7 +1296,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
             {clientFollowups.length === 0
               ? <div style={{ color:"#4a5568", fontSize:13, textAlign:"center", padding:"16px 0" }}>No follow-up records yet. Add the first one above!</div>
               : clientFollowups.map((f,i) => (
-                <div key={f._id||i} style={{ display:"flex", gap:12, padding:"8px 12px", background:"#1a1f2e", borderRadius:8, marginBottom:6, alignItems:"flex-start" }}>
+                <div key={f._id||i} style={{ display:"flex", gap:12, padding:"8px 12px", background:T.bg2, borderRadius:8, marginBottom:6, alignItems:"flex-start" }}>
                   <span style={{ color:"#667eea", fontSize:12, whiteSpace:"nowrap", fontWeight:600, minWidth:80 }}>{f.date}</span>
                   <span style={{ color:"#a0aec0", fontSize:11, minWidth:60 }}>👤 {f.sales}</span>
                   <span style={{ color:"#e2e8f0", fontSize:13, flex:1 }}>{f.note}</span>
@@ -1339,7 +1343,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
               ⚠️ Similar client already exists! 检测到相似客户名称
             </div>
             {dupWarning.map((d,i) => (
-              <div key={i} style={{ display:"flex", gap:16, fontSize:13, padding:"6px 10px", background:"#1a1f2e", borderRadius:8, marginBottom:4 }}>
+              <div key={i} style={{ display:"flex", gap:16, fontSize:13, padding:"6px 10px", background:T.bg2, borderRadius:8, marginBottom:4 }}>
                 <span style={{ color:"#e2e8f0", fontWeight:600 }}>🏢 {d.Client}</span>
                 <span style={{ color:"#a78bfa" }}>👤 {d.Sales}</span>
                 <span style={{ color:"#718096" }}>📍 {d.Region} · {d.Country}</span>
@@ -1375,6 +1379,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
 function Reports({ data, user, onAdd, onUpdate, onDelete }) {
+  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -1429,26 +1434,26 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   const canEdit = (d) => isSuper || d._owner===user.name;
 
   const ReportCard = ({d}) => (
-    <div style={{ background:"#0f1420", border:"1px solid #2d3748", borderRadius:12, padding:14, position:"relative", minHeight:120 }}>
+    <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:14, position:"relative", minHeight:120 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
         <div>
           <div style={{ color:"#a78bfa", fontWeight:700, fontSize:13 }}>{d.Sales}</div>
-          <div style={{ color:"#4a5568", fontSize:11, marginTop:2 }}>{d.Type} · {d.Date}</div>
+          <div style={{ color:T.text4, fontSize:11, marginTop:2 }}>{d.Type} · {d.Date}</div>
         </div>
         {canEdit(d) && (
           <div style={{ display:"flex", gap:4 }}>
-            <Btn onClick={()=>openEdit(d)} style={{ background:"#2d3748", color:"#a0aec0", padding:"3px 8px", fontSize:11 }}>Edit</Btn>
+            <Btn onClick={()=>openEdit(d)} style={{ background:T.bg4, color:T.text2, padding:"3px 8px", fontSize:11 }}>Edit</Btn>
             <Btn onClick={()=>del(d)} style={{ background:"#3d1515", color:"#fc8181", padding:"3px 8px", fontSize:11 }}>Del</Btn>
           </div>
         )}
       </div>
       <div style={{ marginBottom:8 }}>
-        <div style={{ color:"#718096", fontSize:10, fontWeight:600, marginBottom:3 }}>✅ COMPLETED</div>
-        <div style={{ color:"#cbd5e0", fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Done||"—"}</div>
+        <div style={{ color:T.text3, fontSize:10, fontWeight:600, marginBottom:3 }}>✅ COMPLETED</div>
+        <div style={{ color:T.text, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Done||"—"}</div>
       </div>
       <div style={{ marginBottom: d.Issues ? 8 : 0 }}>
-        <div style={{ color:"#718096", fontSize:10, fontWeight:600, marginBottom:3 }}>📋 NEXT PLAN</div>
-        <div style={{ color:"#a0aec0", fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Plan||"—"}</div>
+        <div style={{ color:T.text3, fontSize:10, fontWeight:600, marginBottom:3 }}>📋 NEXT PLAN</div>
+        <div style={{ color:T.text2, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Plan||"—"}</div>
       </div>
       {d.Issues && (
         <div style={{ background:"#2d1a1a", borderRadius:8, padding:"6px 10px", marginTop:8 }}>
@@ -1462,7 +1467,7 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b> reports · <b style={{ color:"#718096", fontSize:12 }}>{weekKeys.length} weeks</b></div>
+        <div style={{ color:T.text2, fontSize:14 }}><b style={{ color:T.text }}>{filtered.length}</b> reports · <b style={{ color:T.text3, fontSize:12 }}>{weekKeys.length} weeks</b></div>
         <div style={{ display:"flex", gap:8 }}>
           {isSuper && <>
             <Btn onClick={()=>exportCSV(filtered,"Reports_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
@@ -1472,9 +1477,9 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} showPerson={true} showRegion={false} />
-      <div style={{ color:"#4a5568", fontSize:12, marginBottom:16 }}>📢 Reports visible to all members · grouped by week (newest first) · Sunday as week start</div>
+      <div style={{ color:T.text4, fontSize:12, marginBottom:16 }}>📢 Reports visible to all members · grouped by week (newest first) · Sunday as week start</div>
 
-      {weekKeys.length === 0 && <div style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No reports yet</div>}
+      {weekKeys.length === 0 && <div style={{ textAlign:"center", padding:40, color:T.text4 }}>No reports yet</div>}
 
       {weekKeys.map(ws => {
         const weekReports = weekMap[ws];
@@ -1496,8 +1501,8 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
               <div style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", borderRadius:8, padding:"4px 14px", color:"#fff", fontSize:13, fontWeight:700 }}>
                 📅 {weekLabel(ws)}
               </div>
-              <div style={{ color:"#4a5568", fontSize:12 }}>{weekReports.length} report{weekReports.length!==1?"s":""}</div>
-              <div style={{ flex:1, height:1, background:"#1e2433" }} />
+              <div style={{ color:T.text4, fontSize:12 }}>{weekReports.length} report{weekReports.length!==1?"s":""}</div>
+              <div style={{ flex:1, height:1, background:T.border2 }} />
             </div>
             {/* 5-column grid */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10 }}>
@@ -1505,9 +1510,9 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
                 const reps = byPerson[name];
                 if (!reps) {
                   return (
-                    <div key={name} style={{ background:"#0f1420", border:"1px dashed #1e2433", borderRadius:12, padding:14, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", opacity:0.5 }}>
-                      <div style={{ color:"#4a5568", fontSize:12, fontWeight:600 }}>{name}</div>
-                      <div style={{ color:"#2d3748", fontSize:11, marginTop:4 }}>No report</div>
+                    <div key={name} style={{ background:T.bg, border:`1px dashed ${T.border2}`, borderRadius:12, padding:14, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", opacity:0.5 }}>
+                      <div style={{ color:T.text4, fontSize:12, fontWeight:600 }}>{name}</div>
+                      <div style={{ color:T.border, fontSize:11, marginTop:4 }}>No report</div>
                     </div>
                   );
                 }
@@ -1538,6 +1543,7 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
 
 // ─── WEEKLY ACTIVITY 行为管理 (admin only) ────────────────────────────────────
 function WeeklyActivity({ pipeline, tracking, reports }) {
+  const T = getT();
   const [filters, setFilters] = useState({});
   const [weekFilter, setWeekFilter] = useState("all");
   const now = new Date();
@@ -1558,20 +1564,20 @@ function WeeklyActivity({ pipeline, tracking, reports }) {
     <div>
       <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
         {[["all","All Time"],["week","This Week"],["month","This Month"]].map(([v,l])=>(
-          <Btn key={v} onClick={()=>setWeekFilter(v)} style={{ background:weekFilter===v?"#667eea":"#2d3748", color:weekFilter===v?"#fff":"#a0aec0", padding:"8px 16px", fontSize:13 }}>{l}</Btn>
+          <Btn key={v} onClick={()=>setWeekFilter(v)} style={{ background:weekFilter===v?"#667eea":T.bg4, color:weekFilter===v?"#fff":T.text2, padding:"8px 16px", fontSize:13 }}>{l}</Btn>
         ))}
       </div>
       <div style={{ display:"grid", gap:14 }}>
         {stats.map(s => (
-          <div key={s.name} style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:12, padding:"16px 20px" }}>
+          <div key={s.name} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 20px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:16 }}>👤 {s.name}</span>
+              <span style={{ color:T.text, fontWeight:700, fontSize:16 }}>👤 {s.name}</span>
               <span style={{ color:"#10b981", fontWeight:700, fontSize:15 }}>Revenue: {s.rev.toLocaleString()}</span>
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
               {[["📞 Contacts",s.contacts,"#3b82f6"],["💬 Quotes",s.quotes,"#a78bfa"],["✅ Won",s.won,"#10b981"],["📝 Reports",s.reps,"#f59e0b"]].map(([label,val,color])=>(
-                <div key={label} style={{ background:"#0f1420", borderRadius:10, padding:"12px 14px", textAlign:"center" }}>
-                  <div style={{ color:"#718096", fontSize:11, marginBottom:6 }}>{label}</div>
+                <div key={label} style={{ background:T.bg3, borderRadius:10, padding:"12px 14px", textAlign:"center" }}>
+                  <div style={{ color:T.text3, fontSize:11, marginBottom:6 }}>{label}</div>
                   <div style={{ color, fontSize:26, fontWeight:800 }}>{val}</div>
                 </div>
               ))}
@@ -1581,7 +1587,7 @@ function WeeklyActivity({ pipeline, tracking, reports }) {
                 <span style={{ color:"#718096", fontSize:11 }}>Activity Level</span>
                 <span style={{ color:"#a0aec0", fontSize:11 }}>{s.contacts} contacts</span>
               </div>
-              <div style={{ background:"#0f1420", borderRadius:6, height:8 }}>
+              <div style={{ background:T.bg3, borderRadius:6, height:8 }}>
                 <div style={{ height:"100%", width:Math.min((s.contacts/max*100),100)+"%", background:"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.5s" }} />
               </div>
             </div>
@@ -1594,6 +1600,7 @@ function WeeklyActivity({ pipeline, tracking, reports }) {
 
 // ─── CLIENT HEALTH 客户健康度 (admin only) ────────────────────────────────────
 function ClientHealth({ pipeline, clients, user }) {
+  const T = getT();
   const isSuper = user?.role === "admin";
   const [riskFilter, setRiskFilter] = useState("all");
   const [salesFilter, setSalesFilter] = useState("");
@@ -1660,19 +1667,19 @@ function ClientHealth({ pipeline, clients, user }) {
   return (
     <div>
       {/* Filter row */}
-      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center", padding:"10px 14px", background:"#0a0e17", borderRadius:10, border:"1px solid #1e2433" }}>
-        <span style={{ color:"#718096", fontSize:12, whiteSpace:"nowrap" }}>Risk:</span>
+      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center", padding:"10px 14px", background:T.bg3, borderRadius:10, border:`1px solid ${T.border2}` }}>
+        <span style={{ color:T.text3, fontSize:12, whiteSpace:"nowrap" }}>Risk:</span>
         {[["all","All"],["High","🔴 High"],["Medium","🟡 Medium"],["Low","🟢 Healthy"]].map(([v,l])=>(
-          <Btn key={v} onClick={()=>setRiskFilter(v)} style={{ background:riskFilter===v?"#667eea":"#2d3748", color:riskFilter===v?"#fff":"#a0aec0", padding:"6px 12px", fontSize:12 }}>{l}</Btn>
+          <Btn key={v} onClick={()=>setRiskFilter(v)} style={{ background:riskFilter===v?"#667eea":T.bg4, color:riskFilter===v?"#fff":T.text2, padding:"6px 12px", fontSize:12 }}>{l}</Btn>
         ))}
-        <div style={{ width:1, height:20, background:"#2d3748", margin:"0 4px" }} />
-        {isSuper && <><span style={{ color:"#718096", fontSize:12, whiteSpace:"nowrap" }}>Sales:</span>
-        <select style={{ ...SS, width:"auto", minWidth:120 }} value={salesFilter} onChange={e=>setSalesFilter(e.target.value)}>
+        <div style={{ width:1, height:20, background:T.border, margin:"0 4px" }} />
+        {isSuper && <><span style={{ color:T.text3, fontSize:12, whiteSpace:"nowrap" }}>Sales:</span>
+        <select style={{ ...SS, width:"auto", minWidth:120, background:T.inputBg, color:T.text, borderColor:T.border }} value={salesFilter} onChange={e=>setSalesFilter(e.target.value)}>
           <option value="">All Sales</option>
           {SALES_MEMBERS.map(m=><option key={m} value={m}>{m}</option>)}
         </select></>}
         {(riskFilter!=="all"||(isSuper&&salesFilter)) && (
-          <Btn onClick={()=>{setRiskFilter("all");setSalesFilter("");}} style={{ background:"#2d3748", color:"#a0aec0", padding:"6px 12px", fontSize:12 }}>✕ Clear</Btn>
+          <Btn onClick={()=>{setRiskFilter("all");setSalesFilter("");}} style={{ background:T.bg4, color:T.text2, padding:"6px 12px", fontSize:12 }}>✕ Clear</Btn>
         )}
         <div style={{ marginLeft:"auto", display:"flex", gap:12, fontSize:12, color:"#718096" }}>
           <span>🔴 {allRows.filter(r=>r.risk==="High").length}</span>
@@ -1680,29 +1687,29 @@ function ClientHealth({ pipeline, clients, user }) {
           <span>🟢 {allRows.filter(r=>r.risk==="Low").length}</span>
         </div>
       </div>
-      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序 · <b style={{ color:"#e2e8f0" }}>{sorted.length}</b>{sorted.length<allRows.length?` / ${allRows.length}`:""} clients</div>
+      <div style={{ color:T.text4, fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序 · <b style={{ color:T.text }}>{sorted.length}</b>{sorted.length<allRows.length?` / ${allRows.length}`:""} clients</div>
 
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
           <thead><tr>
             {COLS.map(([col,label])=>(
               <th key={col} onClick={()=>toggleSort(col)}
-                style={{ textAlign:"left", padding:"10px 12px", color:sortCol===col?"#a78bfa":"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap", cursor:"pointer", userSelect:"none" }}>
+                style={{ textAlign:"left", padding:"10px 12px", color:sortCol===col?"#a78bfa":T.text3, fontWeight:600, fontSize:11, borderBottom:`1px solid ${T.border}`, whiteSpace:"nowrap", cursor:"pointer", userSelect:"none" }}>
                 {label} {sortCol===col?(sortDir==="asc"?"↑":"↓"):<span style={{ opacity:0.3 }}>↕</span>}
               </th>
             ))}
           </tr></thead>
           <tbody>
-            {sorted.length===0 ? <tr><td colSpan={7} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No client data</td></tr>
+            {sorted.length===0 ? <tr><td colSpan={7} style={{ textAlign:"center", padding:40, color:T.text4 }}>No client data</td></tr>
               : sorted.map((r,i) => (
-              <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
-                onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
+              <tr key={i} style={{ borderBottom:`1px solid ${T.bg4}` }}
+                onMouseEnter={e=>e.currentTarget.style.background=T.rowHover}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
-                <td style={{ padding:"10px 12px", color:"#e2e8f0", fontWeight:600 }}>{r.client}</td>
-                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.sales}</td>
-                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.region}</td>
-                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.country}</td>
-                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.lastOrder||"—"}</td>
+                <td style={{ padding:"10px 12px", color:T.text, fontWeight:600 }}>{r.client}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.sales}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.region}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.country}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.lastOrder||"—"}</td>
                 <td style={{ padding:"10px 12px", color:r.riskColor, fontWeight:600 }}>{r.dayStr}</td>
                 <td style={{ padding:"10px 12px" }}>
                   <span style={{ background:r.riskColor+"22", color:r.riskColor, border:`1px solid ${r.riskColor}44`, padding:"3px 12px", borderRadius:20, fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>{r.riskLabel}</span>
@@ -1718,6 +1725,7 @@ function ClientHealth({ pipeline, clients, user }) {
 
 // ─── SALES PERSON DETAIL 业务员详情 ──────────────────────────────────────────
 function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose }) {
+  const T = getT();
   const myPipeline = pipeline.filter(d => d.Sales===name || d._owner===name);
   const myTracking = tracking.filter(d => d.Sales===name || d._owner===name);
   const myClients  = clients.filter(d => d.Sales===name || d._owner===name);
@@ -1757,7 +1765,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
   const sourceList = Object.entries(bySource).sort((a,b)=>b[1]-a[1]);
 
   const StatCard = ({label, value, sub, color="#e2e8f0"}) => (
-    <div style={{ background:"#0f1420", borderRadius:12, padding:"14px 18px", textAlign:"center" }}>
+    <div style={{ background:T.bg3, borderRadius:12, padding:"14px 18px", textAlign:"center" }}>
       <div style={{ color:"#718096", fontSize:11, marginBottom:6 }}>{label}</div>
       <div style={{ color, fontSize:22, fontWeight:800 }}>{value}</div>
       {sub && <div style={{ color:"#4a5568", fontSize:11, marginTop:3 }}>{sub}</div>}
@@ -1766,7 +1774,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1500, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:20, overflowY:"auto" }}>
-      <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:20, width:"100%", maxWidth:860, marginTop:20 }}>
+      <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:20, width:"100%", maxWidth:860, marginTop:20 }}>
         {/* Header */}
         <div style={{ background:"linear-gradient(135deg,#1e1535,#1a2540)", borderRadius:"20px 20px 0 0", padding:"24px 28px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div>
@@ -1815,7 +1823,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:18 }}>
             {/* Region Breakdown */}
-            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px" }}>
+            <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px" }}>
               <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:12 }}>🌍 Revenue by Region 地区分布</div>
               {regionList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No orders yet</div>
                 : regionList.map(([region,amt])=>{
@@ -1836,7 +1844,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
             {/* Source & Product */}
             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-              <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", flex:1 }}>
+              <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px", flex:1 }}>
                 <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:10 }}>📡 Lead Sources 来源分布</div>
                 {sourceList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No tracking data</div>
                   : sourceList.map(([src,cnt])=>(
@@ -1846,7 +1854,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
                     </div>
                   ))}
               </div>
-              <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", flex:1 }}>
+              <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px", flex:1 }}>
                 <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:10 }}>🏭 Industries Tracked 行业别</div>
                 {industryList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No tracking data</div>
                   : industryList.map(([ind,cnt])=>(
@@ -1861,7 +1869,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
           {/* Active Pipeline */}
           {pending.length > 0 && (
-            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", marginBottom:14 }}>
+            <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px", marginBottom:14 }}>
               <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:12 }}>🔄 Active Pipeline 进行中的机会</div>
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
@@ -1882,7 +1890,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
           {/* Recent Orders */}
           {orders.length > 0 && (
-            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px" }}>
+            <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px" }}>
               <div style={{ color:"#10b981", fontSize:13, fontWeight:600, marginBottom:12 }}>✅ Closed Orders 已成交订单</div>
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
@@ -1910,6 +1918,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
 // ─── SALES DASHBOARD 总监主页 (admin only) ────────────────────────────────────
 function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSave }) {
+  const T = getT();
   const [filters, setFilters] = useState({});
   const [selectedSales, setSelectedSales] = useState(null);
   const [goalsModal, setGoalsModal] = useState(false);
@@ -1967,13 +1976,13 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
       {/* Goals Setting Modal */}
       {goalsModal && (
         <Modal title="🎯 Set Monthly Targets 设置月度目标" onClose={()=>setGoalsModal(false)}>
-          <div style={{ marginBottom:12, color:"#a0aec0", fontSize:13 }}>Set annual profit targets for each sales member. 设置年度利润目标</div>
+          <div style={{ marginBottom:12, color:T.text2, fontSize:13 }}>Set annual profit targets for each sales member. 设置年度利润目标</div>
           <div style={{ display:"grid", gap:10 }}>
             {SALES_MEMBERS.map(name => {
               const g = getGoal(name);
               return (
-                <div key={name} style={{ background:"#0f1420", borderRadius:10, padding:"12px 16px", border:"1px solid #2d3748" }}>
-                  <div style={{ color:"#e2e8f0", fontWeight:700, marginBottom:8 }}>👤 {name}</div>
+                <div key={name} style={{ background:T.bg3, borderRadius:10, padding:"12px 16px", border:`1px solid ${T.border}` }}>
+                  <div style={{ color:T.text, fontWeight:700, marginBottom:8 }}>👤 {name}</div>
                   <Field label="Annual Profit Target 年度利润目标 ($)">
                     <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.yearly?.profit??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 100000" />
                   </Field>
@@ -1993,41 +2002,41 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
       {/* KPI Cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:24 }}>
         {kpis.map(({label,value,sub,color,icon}) => (
-          <div key={label} style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:14, padding:"16px 18px" }}>
+          <div key={label} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:14, padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-              <div style={{ color:"#718096", fontSize:11, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"80%" }}>{label}</div>
+              <div style={{ color:T.text3, fontSize:11, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"80%" }}>{label}</div>
               <span style={{ fontSize:18, flexShrink:0 }}>{icon}</span>
             </div>
             <div style={{ color, fontSize:22, fontWeight:800, whiteSpace:"nowrap" }}>{value}</div>
-            <div style={{ color:"#4a5568", fontSize:11, marginTop:4 }}>{sub}</div>
+            <div style={{ color:T.text4, fontSize:11, marginTop:4 }}>{sub}</div>
           </div>
         ))}
       </div>
 
       {/* Sales Performance */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-        <h4 style={{ color:"#e2e8f0", margin:0, fontSize:15 }}>
+        <h4 style={{ color:T.text, margin:0, fontSize:15 }}>
           👥 Sales Performance 业务业绩排行
-          <span style={{ color:"#4a5568", fontSize:12, fontWeight:400, marginLeft:10 }}>Click a row to view full analysis</span>
+          <span style={{ color:T.text4, fontSize:12, fontWeight:400, marginLeft:10 }}>Click a row to view full analysis</span>
         </h4>
         <Btn onClick={()=>{setGoalForm({});setGoalsModal(true);}} style={{ background:"#1a2a3a", color:"#60a5fa", padding:"8px 14px", fontSize:12 }}>🎯 Set Targets 设置目标</Btn>
       </div>
       <div style={{ display:"grid", gap:10, marginBottom:24 }}>
         {byPerson.sort((a,b)=>b.rev-a.rev).map((p,i) => (
           <div key={p.name} onClick={()=>setSelectedSales(p.name)}
-            style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:12, padding:"14px 20px", cursor:"pointer", transition:"all 0.15s" }}
-            onMouseEnter={e=>{e.currentTarget.style.background="#1e2840";e.currentTarget.style.borderColor="#667eea55";}}
-            onMouseLeave={e=>{e.currentTarget.style.background="#1a1f2e";e.currentTarget.style.borderColor="#2d3748";}}>
+            style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:"14px 20px", cursor:"pointer", transition:"all 0.15s" }}
+            onMouseEnter={e=>{e.currentTarget.style.background=T.rowHover;e.currentTarget.style.borderColor="#667eea55";}}
+            onMouseLeave={e=>{e.currentTarget.style.background=T.bg2;e.currentTarget.style.borderColor=T.border;}}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                 <span style={{ color:["#f59e0b","#9ca3af","#cd7f32"][i]||"#4a5568", fontWeight:800, fontSize:20, width:28, textAlign:"center" }}>{i+1}</span>
-                <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>{p.name}</span>
+                <span style={{ color:T.text, fontWeight:700, fontSize:15 }}>{p.name}</span>
               </div>
               <div style={{ display:"flex", gap:20 }}>
                 {[[p.rev.toLocaleString(),"Revenue","#10b981"],[p.orders,"Orders","#3b82f6"],[p.pipe,"Pipeline","#a78bfa"],[p.leads,"Leads","#f59e0b"],[p.forecast.toLocaleString(),"Forecast","#ec4899"]].map(([val,lbl,c])=>(
                   <div key={lbl} style={{ textAlign:"center", minWidth:50 }}>
                     <div style={{ color:c, fontSize:15, fontWeight:700 }}>{val}</div>
-                    <div style={{ color:"#4a5568", fontSize:10 }}>{lbl}</div>
+                    <div style={{ color:T.text4, fontSize:10 }}>{lbl}</div>
                   </div>
                 ))}
               </div>
@@ -2035,13 +2044,13 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
             {/* Profit progress bar vs target */}
             <div>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                <span style={{ color:"#4a5568", fontSize:10 }}>
+                <span style={{ color:T.text4, fontSize:10 }}>
                   Profit 利润: ${p.totalProfit.toLocaleString()}
                   {p.pctProfit!==null ? ` — ${Math.round(p.pctProfit)}% of $${p.targetProfit.toLocaleString()} target` : " — no target set"}
                 </span>
                 {p.pctProfit>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
               </div>
-              <div style={{ background:"#0f1420", borderRadius:6, height:6 }}>
+              <div style={{ background:T.bg3, borderRadius:6, height:6 }}>
                 <div style={{ height:"100%", width:(p.pctProfit!==null?p.pctProfit:Math.min(p.rev/maxRev*100,100))+"%", background:p.pctProfit!==null?(p.pctProfit>=100?"linear-gradient(90deg,#10b981,#34d399)":"linear-gradient(90deg,#667eea,#f59e0b)"):"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.6s" }} />
               </div>
             </div>
@@ -2050,18 +2059,18 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
       </div>
 
       {/* Pipeline Stage Distribution */}
-      <h4 style={{ color:"#e2e8f0", margin:"0 0 10px", fontSize:15 }}>📊 Pipeline by Stage 阶段分布</h4>
+      <h4 style={{ color:T.text, margin:"0 0 10px", fontSize:15 }}>📊 Pipeline by Stage 阶段分布</h4>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
         {["Quotation","Negotiation","Order"].map(stage => {
           const cnt = filtered.filter(d=>d.Stage===stage).length;
           const amt = filtered.filter(d=>d.Stage===stage).reduce((s,d)=>s+Number(d.Amount||0),0);
           const c = STATUS_COLORS[stage]||"#718096";
           return (
-            <div key={stage} style={{ background:"#1a1f2e", border:`1px solid ${c}44`, borderRadius:12, padding:"18px 22px", textAlign:"center" }}>
+            <div key={stage} style={{ background:T.bg2, border:`1px solid ${c}44`, borderRadius:12, padding:"18px 22px", textAlign:"center" }}>
               <Badge status={stage} />
-              <div style={{ color:"#e2e8f0", fontSize:32, fontWeight:800, margin:"10px 0 4px" }}>{cnt}</div>
+              <div style={{ color:T.text, fontSize:32, fontWeight:800, margin:"10px 0 4px" }}>{cnt}</div>
               <div style={{ color:c, fontSize:14, fontWeight:600 }}>{amt.toLocaleString()}</div>
-              <div style={{ color:"#4a5568", fontSize:11, marginTop:4 }}>total amount</div>
+              <div style={{ color:T.text4, fontSize:11, marginTop:4 }}>total amount</div>
             </div>
           );
         })}
@@ -2081,6 +2090,7 @@ const WEEKDAYS_ZH = ["日","一","二","三","四","五","六"];
 const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdateTeam, onDeleteTeam, onAddPersonal, onUpdatePersonal, onDeletePersonal, onSaveMemo }) {
+  const T = getT();
   const isSuper = user?.role === "admin";
   const today = new Date();
   const todayStr = today.toISOString().slice(0,10);
@@ -2177,7 +2187,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
     <div style={{ flex:"0 0 auto", width:"calc(100% - 300px)", minWidth:0 }}>
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
-        <button onClick={prevMonth} style={{ background:"#1a1f2e", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>‹</button>
+        <button onClick={prevMonth} style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>‹</button>
         <div style={{ textAlign:"center" }}>
           <div style={{ color:"#e2e8f0", fontWeight:800, fontSize:22 }}>{MONTHS_EN[viewMonth]} {viewYear}</div>
           <div style={{ color:"#4a5568", fontSize:12, marginTop:2 }}>
@@ -2185,7 +2195,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
             <span style={{ color:"#a78bfa" }}>• Personal todos</span>
           </div>
         </div>
-        <button onClick={nextMonth} style={{ background:"#1a1f2e", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>›</button>
+        <button onClick={nextMonth} style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>›</button>
       </div>
 
       {/* Weekday headers */}
@@ -2252,7 +2262,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
       {/* Day Modal */}
       {dayModal && selectedDay && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:520, maxHeight:"85vh", overflowY:"auto" }}>
+          <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:16, width:"100%", maxWidth:520, maxHeight:"85vh", overflowY:"auto" }}>
             {/* Modal header */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"18px 22px 12px", borderBottom:"1px solid #2d3748" }}>
               <div>
@@ -2350,7 +2360,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
 
     {/* ── RIGHT: MEMO SIDEBAR ── */}
     <div style={{ width:284, flexShrink:0, position:"sticky", top:80, alignSelf:"flex-start" }}>
-      <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:14, overflow:"hidden" }}>
+      <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:14, overflow:"hidden" }}>
         <div style={{ padding:"14px 16px 10px", borderBottom:"1px solid #2d3748" }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: isSuper ? 10 : 0 }}>
             <span style={{ fontSize:16 }}>📝</span>
@@ -2362,7 +2372,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
             <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
               {SALES_MEMBERS.map(name=>(
                 <button key={name} onClick={()=>setMemoViewPerson(name)}
-                  style={{ background:memoViewPerson===name?"#667eea":"#0f1420", color:memoViewPerson===name?"#fff":"#718096", border:`1px solid ${memoViewPerson===name?"#667eea":"#2d3748"}`, borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer", fontWeight:memoViewPerson===name?700:400 }}>
+                  style={{ background:memoViewPerson===name?"#667eea":T.bg3, color:memoViewPerson===name?"#fff":T.text3, border:`1px solid ${memoViewPerson===name?"#667eea":T.border}`, borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer", fontWeight:memoViewPerson===name?700:400 }}>
                   {name}
                 </button>
               ))}
