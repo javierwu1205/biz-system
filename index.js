@@ -2889,10 +2889,11 @@ export default function App() {
 
   return (
     <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"'Noto Sans SC',system-ui,sans-serif" }}>
+      <ThemeStyle T={T} />
       {showPwd && <ChangePasswordModal user={user} onClose={()=>setShowPwd(false)} />}
 
       {/* NAV */}
-      <div style={{ background:"#0d1117", borderBottom:"1px solid #1e2433", position:"sticky", top:0, zIndex:100 }}>
+      <div style={{ background:T.navBg, borderBottom:`1px solid ${T.navBorder}`, position:"sticky", top:0, zIndex:100 }}>
         <div style={{ padding:"0 24px" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", height:58 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
