@@ -2176,7 +2176,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
     if (end < start) return alert("结束日期必须晚于开始日期");
     const promises = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
-      const ds = d.toISOString().slice(0,10);
+      const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
       promises.push(onAddTeam({ date:ds, text:"✈️ "+tripText.trim(), author:user.name, _owner:user.name }));
     }
     await Promise.all(promises);
