@@ -2173,7 +2173,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
         days.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));
       }
       for (const ds of days) {
-        await onAddPersonal({ date:ds, text:"✈️ "+tripText.trim(), priority:"high", done:false, owner:user?.name, _owner:user?.name });
+        await onAddPersonal({ date:ds, text:"✈️ "+tripText.trim(), priority:"urgent", done:false, owner:user?.name, _owner:user?.name });
       }
       setTripText(""); setTripEnd(""); setTripMode(false);
     } catch(e) { alert("保存失败: "+e.message); }
@@ -2264,7 +2264,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
               {/* Personal todos preview */}
               {personal.slice(0,2).map(t=>(
                 <div key={t._id} style={{ display:"flex", alignItems:"center", gap:3, marginBottom:1 }}>
-                  <span style={{ fontSize:8 }}>{PRIORITY_CONFIG[t.priority||"normal"].dot}</span>
+                  <span style={{ fontSize:8 }}>{(PRIORITY_CONFIG[t.priority]||PRIORITY_CONFIG["normal"]).dot}</span>
                   <span style={{ fontSize:10, color: t.done?"#4a5568":"#a0aec0", textDecoration:t.done?"line-through":"none", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", flex:1 }}>{t.text}</span>
                 </div>
               ))}
@@ -2359,7 +2359,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
                 {selPersonal.length===0
                   ? <div style={{ color:T.text4, fontSize:13, padding:"8px 0" }}>No todos yet. Add one below!</div>
                   : selPersonal.map(t=>{
-                    const pc = PRIORITY_CONFIG[t.priority||"normal"];
+                    const pc = (PRIORITY_CONFIG[t.priority]||PRIORITY_CONFIG["normal"]);
                     return (
                       <div key={t._id} style={{ display:"flex", alignItems:"center", gap:8, background:t.done?T.bg3:pc.bg, border:`1px solid ${t.done?T.border:pc.color+"33"}`, borderRadius:8, padding:"8px 12px", marginBottom:6, transition:"all 0.2s" }}>
                         <input type="checkbox" checked={t.done} onChange={()=>{if(isSuper||t.owner===user?.name||t._owner===user?.name)toggleTodo(t);}}
