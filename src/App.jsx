@@ -498,7 +498,6 @@ function LoginScreen({ onLogin }) {
 
 // ─── TRACKING 客户开发跟踪 ────────────────────────────────────────────────────
 function Tracking({ T, data, user, onAdd, onUpdate, onDelete }) {
-  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -1179,7 +1178,6 @@ function ClientOwnerSearch({ allClients }) {
 
 // ─── CLIENT MANAGEMENT 客户管理 ────────────────────────────────────────────────
 function ClientMgmt({ T, data, user, onAdd, onUpdate, onDelete, followups, onAddFollowup }) {
-  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -1379,7 +1377,6 @@ function ClientMgmt({ T, data, user, onAdd, onUpdate, onDelete, followups, onAdd
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
 function Reports({ T, data, user, onAdd, onUpdate, onDelete }) {
-  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -1543,7 +1540,6 @@ function Reports({ T, data, user, onAdd, onUpdate, onDelete }) {
 
 // ─── WEEKLY ACTIVITY 行为管理 (admin only) ────────────────────────────────────
 function WeeklyActivity({ T, pipeline, tracking, reports }) {
-  const T = getT();
   const [filters, setFilters] = useState({});
   const [weekFilter, setWeekFilter] = useState("all");
   const now = new Date();
@@ -1600,7 +1596,6 @@ function WeeklyActivity({ T, pipeline, tracking, reports }) {
 
 // ─── CLIENT HEALTH 客户健康度 (admin only) ────────────────────────────────────
 function ClientHealth({ T, pipeline, clients, user }) {
-  const T = getT();
   const isSuper = user?.role === "admin";
   const [riskFilter, setRiskFilter] = useState("all");
   const [salesFilter, setSalesFilter] = useState("");
@@ -1918,7 +1913,6 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
 // ─── SALES DASHBOARD 总监主页 (admin only) ────────────────────────────────────
 function SalesDashboard({ T, pipeline, tracking, clients, reports, goals, onGoalSave }) {
-  const T = getT();
   const [filters, setFilters] = useState({});
   const [selectedSales, setSelectedSales] = useState(null);
   const [goalsModal, setGoalsModal] = useState(false);
@@ -2090,7 +2084,6 @@ const WEEKDAYS_ZH = ["日","一","二","三","四","五","六"];
 const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUpdateTeam, onDeleteTeam, onAddPersonal, onUpdatePersonal, onDeletePersonal, onSaveMemo }) {
-  const T = getT();
   const isSuper = user?.role === "admin";
   const today = new Date();
   const todayStr = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
@@ -2455,7 +2448,6 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
 
 // ─── TEAM LEADERBOARD 业绩目标排行 ────────────────────────────────────────────
 function TeamLeaderboard({ T, pipeline, goals, user }) {
-  const T = getT();
   const now = new Date();
   const thisYear = now.getFullYear().toString(); // "2026"
 
