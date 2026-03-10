@@ -271,8 +271,11 @@ function Badge({ status }) {
   return <span style={{ background:c+"22", color:c, border:`1px solid ${c}44`, padding:"2px 10px", borderRadius:20, fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>{status}</span>;
 }
 function Btn({ onClick, children, style={} }) { return <button onClick={onClick} style={{ border:"none", cursor:"pointer", fontWeight:600, borderRadius:8, ...style }}>{children}</button>; }
+  const T = getT();
 function Field({ label, children }) { const T=getT(); return <div style={{ marginBottom:16 }}><label style={{ display:"block", color:T.text2, fontSize:13, marginBottom:6, fontWeight:500 }}>{label}</label>{children}</div>; }
+  const T = getT();
 function Modal({ title, onClose, children }) {
+  const T = getT();
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
       <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:16, width:"100%", maxWidth:600, maxHeight:"90vh", overflowY:"auto" }}>
@@ -286,6 +289,7 @@ function Modal({ title, onClose, children }) {
   );
 }
 function DataTable({ headers, rows, onEdit, onDelete, canEdit }) {
+  const T = getT();
   return (
     <div style={{ overflowX:"auto" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, tableLayout:"fixed" }}>
@@ -367,6 +371,7 @@ function exportPDF(data, filename, cols, title) {
 
 // ─── STYLED DATE INPUT ────────────────────────────────────────────────────────
 function DateInput({ value, onChange, placeholder }) {
+  const T = getT();
   return (
     <input
       type="date"
@@ -389,6 +394,7 @@ function DateInput({ value, onChange, placeholder }) {
 
 // ─── FILTER BAR ───────────────────────────────────────────────────────────────
 function FilterBar({ isSuper, filters, setFilters, showPerson=true, showRegion=true, showDate=true, dateField="Date" }) {
+  const T = getT();
   const countries = filters.region ? (COUNTRIES_BY_REGION[filters.region]||[]) : [];
   return (
     <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14, padding:"10px 14px", background:T.bg3, borderRadius:10, border:`1px solid ${T.border2}`, alignItems:"center" }}>
@@ -434,6 +440,7 @@ function applyFilters(data, filters, dateField="Date") {
 
 // ─── CHANGE PASSWORD ─────────────────────────────────────────────────────────
 function ChangePasswordModal({ user, onClose }) {
+  const T = getT();
   const [oldPwd, setOldPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -488,6 +495,7 @@ function ChangePasswordModal({ user, onClose }) {
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
+  const T = getT();
   const [username, setUsername] = useState("");
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState("");
@@ -1087,6 +1095,7 @@ function PdfMigrationTool({ pipeline }) { return null; }
 // Each row object should have _sort_<header> keys for sortable columns.
 // Falls back to row[header] if no _sort_ key exists.
 function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={}, highlightId }) {
+  const T = getT();
   const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
   const [sortDir, setSortDir] = useState(sortDesc ? "desc" : "asc");
 
@@ -1165,6 +1174,7 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
   );
 }
 function ClientOwnerSearch({ allClients }) {
+  const T = getT();
   const [query, setQuery] = useState("");
   const [searched, setSearched] = useState(false);
   const results = searched && query.trim()
