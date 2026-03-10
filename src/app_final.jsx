@@ -95,23 +95,23 @@ const THEMES = {
   },
   light: {
     name:"☀️ 浅色 Light", key:"light",
-    bg:"#f7f8fc", bg2:"#ffffff", bg3:"#eef0f6", bg4:"#e8eaf2",
-    border:"#d1d5db", border2:"#e5e7eb",
-    text:"#1a202c", text2:"#4a5568", text3:"#718096", text4:"#a0aec0",
-    accent:"#7c3aed", accentBg:"#7c3aed18",
-    navBg:"#ffffff", navBorder:"#e5e7eb",
-    cardBg:"#ffffff", rowHover:"#f3f4f6",
+    bg:"#f0f2f8", bg2:"#ffffff", bg3:"#e4e8f2", bg4:"#d8dce8",
+    border:"#b0b8cc", border2:"#c8d0e0",
+    text:"#0d1117", text2:"#1e2a3a", text3:"#374151", text4:"#6b7280",
+    accent:"#5b21b6", accentBg:"#5b21b618",
+    navBg:"#ffffff", navBorder:"#c8d0e0",
+    cardBg:"#ffffff", rowHover:"#eaecf4",
     inputBg:"#ffffff",
   },
   warm: {
     name:"🌅 暖色 Warm", key:"warm",
-    bg:"#fdf6f0", bg2:"#fff9f5", bg3:"#f5ece4", bg4:"#edddd3",
-    border:"#d4b8a8", border2:"#e8d5c8",
-    text:"#2d1810", text2:"#6b4c3b", text3:"#9c7060", text4:"#c4a090",
-    accent:"#c2692a", accentBg:"#c2692a18",
-    navBg:"#fff9f5", navBorder:"#e8d5c8",
-    cardBg:"#fff9f5", rowHover:"#f5ece4",
-    inputBg:"#ffffff",
+    bg:"#fdf0e8", bg2:"#fff8f2", bg3:"#f0e0d0", bg4:"#e4cabb",
+    border:"#c09070", border2:"#d4b090",
+    text:"#1a0a04", text2:"#3d1f10", text3:"#6b3820", text4:"#9c6040",
+    accent:"#b85010", accentBg:"#b8501018",
+    navBg:"#fff8f2", navBorder:"#d4b090",
+    cardBg:"#fff8f2", rowHover:"#f0e0d0",
+    inputBg:"#fff8f2",
   },
   ocean: {
     name:"🌊 海蓝 Ocean", key:"ocean",
@@ -140,7 +140,73 @@ function getTheme() {
 }
 function saveTheme(key) { try { localStorage.setItem("biz_theme", key); } catch(e) {} }
 
+// Global theme store — set by App on every render, read by any component
+const _G = { T: getTheme() };
+function getT() { return _G.T; }
+
+// Inject dynamic CSS based on current theme — covers ALL hardcoded colors
+function ThemeStyle({ T }) {
+  const isLight = T.key==="light"||T.key==="warm";
+  const css = `
+    body, #root { background: ${T.bg} !important; color: ${T.text} !important; }
+    input, select, textarea {
+      background: ${T.inputBg} !important;
+      color: ${T.text} !important;
+      border-color: ${T.border} !important;
+      color-scheme: ${isLight?"light":"dark"} !important;
+    }
+    input::placeholder, textarea::placeholder { color: ${T.text4} !important; }
+    option { background: ${T.bg2} !important; color: ${T.text} !important; }
+    table th { color: ${T.text3} !important; border-bottom-color: ${T.border} !important; }
+    table td { color: ${T.text2} !important; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background: ${T.bg3}; }
+    ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius:3px; }
+    /* Override all hardcoded dark backgrounds in cards/panels */
+    [style*="background: rgb(15, 20, 32)"], [style*='background: rgb(15, 20, 32)'],
+    [style*="background:#0f1420"], [style*='background: #0f1420'] {
+      background: ${T.bg} !important;
+    }
+    [style*="background: rgb(26, 31, 46)"], [style*='background: rgb(26, 31, 46)'],
+    [style*="background:#1a1f2e"], [style*='background: #1a1f2e'] {
+      background: ${T.bg2} !important;
+    }
+    [style*="background: rgb(10, 14, 23)"], [style*='background: rgb(10, 14, 23)'],
+    [style*="background:#0a0e17"], [style*='background: #0a0e17'] {
+      background: ${T.bg3} !important;
+    }
+    [style*="background: rgb(22, 27, 39)"], [style*='background: rgb(22, 27, 39)'],
+    [style*="background:#161b27"], [style*='background: #161b27'] {
+      background: ${T.bg4} !important;
+    }
+    [style*="background: rgb(13, 17, 23)"], [style*='background: rgb(13, 17, 23)'],
+    [style*="background:#0d1117"], [style*='background: #0d1117'] {
+      background: ${T.bg3} !important;
+    }
+    /* Override hardcoded text colors for readability */
+    [style*="color: rgb(203, 213, 224)"], [style*="color:#cbd5e0"] { color: ${T.text} !important; }
+    [style*="color: rgb(160, 174, 192)"], [style*="color:#a0aec0"] { color: ${T.text2} !important; }
+    [style*="color: rgb(113, 128, 150)"], [style*="color:#718096"] { color: ${T.text3} !important; }
+    [style*="color: rgb(74, 85, 104)"], [style*="color:#4a5568"]  { color: ${T.text4} !important; }
+    [style*="color: rgb(226, 232, 240)"], [style*="color:#e2e8f0"] { color: ${T.text} !important; }
+    /* Borders */
+    [style*="border-bottom: 1px solid rgb(22, 27, 39)"] { border-bottom-color: ${T.bg4} !important; }
+    [style*="border: 1px solid rgb(45, 55, 72)"] { border-color: ${T.border} !important; }
+    [style*="border-bottom: 1px solid rgb(45, 55, 72)"] { border-bottom-color: ${T.border} !important; }
+    /* Cards and sections */
+    [style*="background: linear-gradient(135deg, rgb(45, 26, 0)"],
+    [style*="background: linear-gradient(135deg, rgb(61, 34, 0)"] {
+      background: linear-gradient(135deg, ${T.bg3}, ${T.bg4}) !important;
+    }
+  `;
+  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+}
+
 // ─── STYLES & UI ─────────────────────────────────────────────────────────────
+// Dynamic input styles — always reads current theme
+function IS_fn() { const T=getT(); return { width:"100%", background:T.inputBg, border:`1px solid ${T.border}`, borderRadius:8, color:T.text, padding:"10px 12px", fontSize:14, outline:"none", boxSizing:"border-box" }; }
+function SS_fn() { return { ...IS_fn(), cursor:"pointer" }; }
+// Keep IS/SS as backward-compatible (used inline in many places - will be overridden by ThemeStyle CSS)
 const IS = { width:"100%", background:"#0f1420", border:"1px solid #2d3748", borderRadius:8, color:"#e2e8f0", padding:"10px 12px", fontSize:14, outline:"none", boxSizing:"border-box" };
 const SS = { ...IS, cursor:"pointer" };
 const STATUS_COLORS = {
@@ -153,14 +219,15 @@ function Badge({ status }) {
   return <span style={{ background:c+"22", color:c, border:`1px solid ${c}44`, padding:"2px 10px", borderRadius:20, fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>{status}</span>;
 }
 function Btn({ onClick, children, style={} }) { return <button onClick={onClick} style={{ border:"none", cursor:"pointer", fontWeight:600, borderRadius:8, ...style }}>{children}</button>; }
-function Field({ label, children }) { return <div style={{ marginBottom:16 }}><label style={{ display:"block", color:"#a0aec0", fontSize:13, marginBottom:6, fontWeight:500 }}>{label}</label>{children}</div>; }
+function Field({ label, children }) { const T=getT(); return <div style={{ marginBottom:16 }}><label style={{ display:"block", color:T.text2, fontSize:13, marginBottom:6, fontWeight:500 }}>{label}</label>{children}</div>; }
 function Modal({ title, onClose, children }) {
+  const T = getT();
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
-      <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:600, maxHeight:"90vh", overflowY:"auto" }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
+      <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:16, width:"100%", maxWidth:600, maxHeight:"90vh", overflowY:"auto" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px 0" }}>
-          <h3 style={{ color:"#e2e8f0", fontSize:18, fontWeight:700, margin:0 }}>{title}</h3>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"#718096", fontSize:24, cursor:"pointer" }}>×</button>
+          <h3 style={{ color:T.text, fontSize:18, fontWeight:700, margin:0 }}>{title}</h3>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:T.text3, fontSize:24, cursor:"pointer" }}>×</button>
         </div>
         <div style={{ padding:"16px 24px 24px" }}>{children}</div>
       </div>
@@ -168,28 +235,29 @@ function Modal({ title, onClose, children }) {
   );
 }
 function DataTable({ headers, rows, onEdit, onDelete, canEdit }) {
+  const T = getT();
   return (
     <div style={{ overflowX:"auto" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, tableLayout:"fixed" }}>
         <thead><tr>
-          {headers.map(h => <th key={h} style={{ textAlign:"left", padding:"10px 10px", color:"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{h}</th>)}
-          <th style={{ padding:"10px 10px", color:"#718096", fontSize:11, borderBottom:"1px solid #2d3748", width:100 }}>Actions</th>
+          {headers.map(h => <th key={h} style={{ textAlign:"left", padding:"10px 10px", color:T.text3, fontWeight:600, fontSize:11, borderBottom:`1px solid ${T.border}`, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{h}</th>)}
+          <th style={{ padding:"10px 10px", color:T.text3, fontSize:11, borderBottom:`1px solid ${T.border}`, width:100 }}>Actions</th>
         </tr></thead>
         <tbody>
           {rows.length === 0
-            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
+            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:T.text4 }}>No data yet</td></tr>
             : rows.map((row, i) => (
-              <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
-                onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
+              <tr key={i} style={{ borderBottom:`1px solid ${T.bg4}` }}
+                onMouseEnter={e=>e.currentTarget.style.background=T.rowHover}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
-                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:"#cbd5e0", verticalAlign:"middle" }}>
+                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:T.text2, verticalAlign:"middle" }}>
                   {h==="Status"||h==="Stage" ? <Badge status={row[h]} /> : row[h]}
                 </td>)}
                 <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
                   {(canEdit ? canEdit(row) : true)
-                    ? <><Btn onClick={()=>onEdit(i)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
+                    ? <><Btn onClick={()=>onEdit(i)} style={{ background:T.bg4, color:T.text2, padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
                        <Btn onClick={()=>onDelete(i)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn></>
-                    : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
+                    : <span style={{ color:T.text4, fontSize:12 }}>—</span>}
                 </td>
               </tr>
             ))}
@@ -207,6 +275,32 @@ function exportCSV(data, filename, cols) {
   const blob = new Blob([bom+header+"\n"+rows.join("\n")], { type:"text/csv;charset=utf-8;" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename+".csv"; a.click();
 }
+
+function exportFullBackup(pipeline, tracking, clients, reports, followups, calTeam, calPersonal, calMemos) {
+  const date = new Date().toISOString().slice(0,10);
+  const sections = [
+    { name:"Pipeline 报价", data:pipeline, cols:["Date","Client","Region","Country","Currency","Amount","Cost","Stage","Prob","Sales","Status","Followup","Notes"] },
+    { name:"Tracking 客户开发", data:tracking, cols:["Date","Client","Region","Country","Source","Industry","Status","Sales","Notes"] },
+    { name:"Clients 客户管理", data:clients, cols:["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Notes"] },
+    { name:"Reports 工作汇报", data:reports, cols:["Date","Sales","Content","KPI","Clients","Orders"] },
+    { name:"FollowUps 跟进记录", data:followups, cols:["date","client","note","sales"] },
+    { name:"CalTeam 团队日历", data:calTeam, cols:["date","title","desc","color","owner"] },
+    { name:"CalPersonal 个人日历", data:calPersonal, cols:["date","title","desc","color","owner"] },
+    { name:"CalMemos 备忘录", data:calMemos, cols:["date","title","content","owner"] },
+  ];
+  const bom = "\uFEFF";
+  let full = `FLOWCOLOUR BIZ SYSTEM — FULL DATA BACKUP\nGenerated: ${new Date().toLocaleString()}\nTotal records: ${sections.reduce((s,x)=>s+(x.data||[]).length,0)}\n\n`;
+  sections.forEach(sec => {
+    const rows = sec.data || [];
+    full += `\n===== ${sec.name} (${rows.length} records) =====\n`;
+    full += sec.cols.join(",") + "\n";
+    rows.forEach(r => {
+      full += sec.cols.map(c => `"${String(r[c]||"").replace(/"/g,"'").replace(/\n/g," ")}"`).join(",") + "\n";
+    });
+  });
+  const blob = new Blob([bom+full], { type:"text/csv;charset=utf-8;" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `FlowcolourBackup_${date}.csv`; a.click();
+}
 function exportPDF(data, filename, cols, title) {
   const w = window.open("","_blank");
   if (!w) return alert("Please allow popups");
@@ -223,6 +317,7 @@ function exportPDF(data, filename, cols, title) {
 
 // ─── STYLED DATE INPUT ────────────────────────────────────────────────────────
 function DateInput({ value, onChange, placeholder }) {
+  const T = getT();
   return (
     <input
       type="date"
@@ -231,11 +326,11 @@ function DateInput({ value, onChange, placeholder }) {
       title={placeholder}
       style={{
         ...IS, width:160,
-        background:"#1a1f2e",
-        border:"1px solid #4a3f6b",
+        background:T.inputBg,
+        border:`1px solid ${T.border}`,
         borderRadius:8,
-        color:"#e2e8f0",
-        colorScheme:"dark",
+        color:T.text,
+        colorScheme:T.key==="light"||T.key==="warm"?"light":"dark",
         cursor:"pointer",
         fontSize:13,
       }}
@@ -245,22 +340,23 @@ function DateInput({ value, onChange, placeholder }) {
 
 // ─── FILTER BAR ───────────────────────────────────────────────────────────────
 function FilterBar({ isSuper, filters, setFilters, showPerson=true, showRegion=true, showDate=true, dateField="Date" }) {
+  const T = getT();
   const countries = filters.region ? (COUNTRIES_BY_REGION[filters.region]||[]) : [];
   return (
-    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14, padding:"10px 14px", background:"#0a0e17", borderRadius:10, border:"1px solid #1e2433", alignItems:"center" }}>
+    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14, padding:"10px 14px", background:T.bg3, borderRadius:10, border:`1px solid ${T.border2}`, alignItems:"center" }}>
       {isSuper && showPerson && (
-        <select style={{ ...SS, width:"auto", minWidth:120 }} value={filters.person||""} onChange={e=>setFilters(p=>({...p, person:e.target.value}))}>
+        <select style={{ ...SS, width:"auto", minWidth:120, background:T.inputBg, color:T.text, borderColor:T.border }} value={filters.person||""} onChange={e=>setFilters(p=>({...p, person:e.target.value}))}>
           <option value="">All Sales</option>
           {SALES_MEMBERS.map(m=><option key={m} value={m}>{m}</option>)}
         </select>
       )}
       {showRegion && <>
-        <select style={{ ...SS, width:"auto", minWidth:140 }} value={filters.region||""} onChange={e=>setFilters(p=>({...p, region:e.target.value, country:""}))}>
+        <select style={{ ...SS, width:"auto", minWidth:140, background:T.inputBg, color:T.text, borderColor:T.border }} value={filters.region||""} onChange={e=>setFilters(p=>({...p, region:e.target.value, country:""}))}>
           <option value="">All Regions</option>
           {REGIONS_EN.map(r=><option key={r} value={r}>{r}</option>)}
         </select>
         {filters.region && (
-          <select style={{ ...SS, width:"auto", minWidth:140 }} value={filters.country||""} onChange={e=>setFilters(p=>({...p, country:e.target.value}))}>
+          <select style={{ ...SS, width:"auto", minWidth:140, background:T.inputBg, color:T.text, borderColor:T.border }} value={filters.country||""} onChange={e=>setFilters(p=>({...p, country:e.target.value}))}>
             <option value="">All Countries</option>
             {countries.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
@@ -272,7 +368,7 @@ function FilterBar({ isSuper, filters, setFilters, showPerson=true, showRegion=t
         <DateInput value={filters.dateTo} onChange={e=>setFilters(p=>({...p, dateTo:e.target.value}))} placeholder="To date" />
       </>}
       {(filters.person||filters.region||filters.dateFrom||filters.dateTo) && (
-        <Btn onClick={()=>setFilters({})} style={{ background:"#2d3748", color:"#a0aec0", padding:"8px 12px", fontSize:12 }}>✕ Clear</Btn>
+        <Btn onClick={()=>setFilters({})} style={{ background:T.bg4, color:T.text2, border:`1px solid ${T.border}`, padding:"8px 12px", fontSize:12 }}>✕ Clear</Btn>
       )}
     </div>
   );
@@ -402,6 +498,7 @@ function LoginScreen({ onLogin }) {
 
 // ─── TRACKING 客户开发跟踪 ────────────────────────────────────────────────────
 function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
+  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -428,10 +525,10 @@ function Tracking({ data, user, onAdd, onUpdate, onDelete }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} records</div>
+        <div style={{ color:T.text2, fontSize:14 }}><b style={{ color:T.text }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} records</div>
         <div style={{ display:"flex", gap:8 }}>
-          <Btn onClick={()=>exportCSV(filtered,"Tracking_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
-          <Btn onClick={()=>exportPDF(filtered,"Tracking",exportCols,"Tracking 客户开发跟踪 — Flowcolour")} style={{ background:"#1e2a3a", color:"#60a5fa", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
+          <Btn onClick={()=>exportCSV(filtered,"Tracking_"+new Date().toLocaleDateString(),exportCols)} style={{ background:getT().bg3, color:"#10b981", border:"1px solid #10b98144", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
+          <Btn onClick={()=>exportPDF(filtered,"Tracking",exportCols,"Tracking 客户开发跟踪 — Flowcolour")} style={{ background:getT().bg3, color:"#60a5fa", border:"1px solid #60a5fa44", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
           <button onClick={()=>{setForm(empty);setEditItem(null);setModal(true);}} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Add Record</button>
         </div>
       </div>
@@ -484,9 +581,13 @@ function FollowUpBanner({ pipeline, user, onJump, T }) {
   const mine = isSuper ? pipeline : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
   const due = mine.filter(d => d.FollowUpDate && d.FollowUpDate <= today && d.Stage !== "Order" && d.NextAction !== "Closed – Lost" && d.NextAction !== "Completed");
   if (due.length === 0) return null;
-  const bg = T ? `linear-gradient(135deg,${T.bg3},${T.bg4})` : "linear-gradient(135deg,#2d1a00,#3d2200)";
+  const T2 = T || getT(); 
+  const isLight = T2.key==="light"||T2.key==="warm";
+  const bg = isLight 
+    ? "linear-gradient(135deg,#fef3c7,#fde68a)" 
+    : `linear-gradient(135deg,${T2.bg3},${T2.bg4})`;
   return (
-    <div style={{ background:bg, border:"1px solid #f59e0b55", borderRadius:12, padding:"14px 18px", marginBottom:20 }}>
+    <div style={{ background:bg, border:`1px solid #f59e0b55`, borderRadius:12, padding:"14px 18px", marginBottom:20 }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
         <span style={{ fontSize:20 }}>🔔</span>
         <span style={{ color:"#f59e0b", fontWeight:700, fontSize:15 }}>Follow-up Due 追踪提醒</span>
@@ -592,7 +693,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
         if (inlineEditId === d._id) {
           return <div onClick={e=>e.stopPropagation()} style={{ display:"flex", gap:4, alignItems:"center" }}>
             <input type="date" value={inlineDate} onChange={e=>setInlineDate(e.target.value)}
-              style={{ background:"#1a1f2e", border:"1px solid #667eea", color:"#e2e8f0", borderRadius:6, padding:"3px 6px", fontSize:11, colorScheme:"dark" }} />
+              style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:"3px 6px", fontSize:11 }} />
             <button onClick={async()=>{ await onUpdate(d._id,{...d,FollowUpDate:inlineDate}); setInlineEditId(null); }}
               style={{ background:"#10b981", border:"none", color:"#fff", borderRadius:5, padding:"3px 7px", cursor:"pointer", fontSize:11 }}>✓</button>
             <button onClick={()=>setInlineEditId(null)}
@@ -696,7 +797,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
       {/* PDF Viewer */}
       {pdfViewer && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.9)", zIndex:2000, display:"flex", flexDirection:"column" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px", background:"#1a1f2e", borderBottom:"1px solid #2d3748" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px", background:T.bg2, borderBottom:`1px solid ${T.border}` }}>
             <span style={{ color:"#e2e8f0", fontWeight:600 }}>📄 {pdfViewer.name}</span>
             <button onClick={()=>setPdfViewer(null)} style={{ background:"#3d1515", border:"none", color:"#fc8181", padding:"6px 14px", borderRadius:8, cursor:"pointer" }}>✕ Close</button>
           </div>
@@ -707,7 +808,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
       {/* Client Summary Modal */}
       {clientSummary && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:720, maxHeight:"85vh", overflowY:"auto" }}>
+          <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:16, width:"100%", maxWidth:720, maxHeight:"85vh", overflowY:"auto" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px 0" }}>
               <h3 style={{ color:"#e2e8f0", fontSize:18, fontWeight:700, margin:0 }}>📊 {clientSummary} — Client Summary</h3>
               <button onClick={()=>setClientSummary(null)} style={{ background:"none", border:"none", color:"#718096", fontSize:24, cursor:"pointer" }}>×</button>
@@ -720,7 +821,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
                   ["🔄 Pending Quotes 报价中", summaryPending.length, summaryTotalPending.toLocaleString(), "#f59e0b"],
                   ["📦 Total Deals 总记录", summaryDeals.length, (summaryTotalOrdered+summaryTotalPending).toLocaleString(), "#a78bfa"],
                 ].map(([label,cnt,amt,color])=>(
-                  <div key={label} style={{ background:"#0f1420", borderRadius:12, padding:"14px 16px", textAlign:"center" }}>
+                  <div key={label} style={{ background:T.bg3, borderRadius:12, padding:"14px 16px", textAlign:"center" }}>
                     <div style={{ color:"#718096", fontSize:11, marginBottom:6 }}>{label}</div>
                     <div style={{ color, fontSize:24, fontWeight:800 }}>{cnt}</div>
                     <div style={{ color:"#a0aec0", fontSize:13, marginTop:2 }}>{amt}</div>
@@ -736,7 +837,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
                     <thead><tr>{["Date","Amount","Currency","Cost","Profit","Sales","Notes"].map(h=><th key={h} style={{ textAlign:"left", padding:"7px 10px", color:"#718096", borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>)}</tr></thead>
                     <tbody>{summaryOrders.sort((a,b)=>b.Date>a.Date?1:-1).map((d,i)=>{
                       const {p,pct,pos}=profit(d.Amount,d.Cost);
-                      return <tr key={i} style={{ borderBottom:"1px solid #161b27" }}>
+                      return <tr key={i} style={{ borderBottom:`1px solid ${T.bg4}` }}>
                         <td style={{ padding:"7px 10px", color:"#cbd5e0" }}>{d.Date}</td>
                         <td style={{ padding:"7px 10px", color:"#10b981", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</td>
                         <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Currency}</td>
@@ -757,7 +858,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
                   <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                     <thead><tr>{["Date","Amount","Currency","Stage","Probability","NextAction","Sales"].map(h=><th key={h} style={{ textAlign:"left", padding:"7px 10px", color:"#718096", borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>)}</tr></thead>
                     <tbody>{summaryPending.sort((a,b)=>b.Date>a.Date?1:-1).map((d,i)=>(
-                      <tr key={i} style={{ borderBottom:"1px solid #161b27" }}>
+                      <tr key={i} style={{ borderBottom:`1px solid ${T.bg4}` }}>
                         <td style={{ padding:"7px 10px", color:"#cbd5e0" }}>{d.Date}</td>
                         <td style={{ padding:"7px 10px", color:"#f59e0b", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</td>
                         <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Currency}</td>
@@ -786,8 +887,8 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
           <span style={{ color:"#718096", fontSize:12, marginLeft:8 }}>· Click 📊 for client history · Click headers to sort</span>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          <Btn onClick={()=>exportCSV(filtered.map(d=>({...d,Profit:Number(d.Amount||0)-Number(d.Cost||0)})),"Pipeline_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
-          <Btn onClick={()=>exportPDF(filtered.map(d=>({...d,Profit:Number(d.Amount||0)-Number(d.Cost||0)})),"Pipeline",exportCols,"Pipeline 报价 & 销售机会池 — Flowcolour")} style={{ background:"#1e2a3a", color:"#60a5fa", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
+          <Btn onClick={()=>exportCSV(filtered.map(d=>({...d,Profit:Number(d.Amount||0)-Number(d.Cost||0)})),"Pipeline_"+new Date().toLocaleDateString(),exportCols)} style={{ background:getT().bg3, color:"#10b981", border:"1px solid #10b98144", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
+          <Btn onClick={()=>exportPDF(filtered.map(d=>({...d,Profit:Number(d.Amount||0)-Number(d.Cost||0)})),"Pipeline",exportCols,"Pipeline 报价 & 销售机会池 — Flowcolour")} style={{ background:getT().bg3, color:"#60a5fa", border:"1px solid #60a5fa44", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
           <button onClick={()=>openModal()} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Add Deal</button>
         </div>
       </div>
@@ -803,14 +904,14 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
               onFocus={()=>setShowClientDrop(true)}
               placeholder="Type to search clients from your list..." />
             {showClientDrop && clientSuggestions.length > 0 && (
-              <div style={{ position:"absolute", top:"100%", left:0, right:0, background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:8, zIndex:200, maxHeight:200, overflowY:"auto", marginTop:2 }}>
+              <div style={{ position:"absolute", top:"100%", left:0, right:0, background:T.bg2, border:`1px solid ${T.border}`, borderRadius:8, zIndex:200, maxHeight:200, overflowY:"auto", marginTop:2 }}>
                 {clientSuggestions.map((c,i)=>(
                   <div key={i} onClick={()=>selectClient(c)}
-                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:"1px solid #161b27" }}
+                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${T.bg4}` }}
                     onMouseEnter={e=>e.currentTarget.style.background="#2d3748"}
                     onMouseLeave={e=>e.currentTarget.style.background=""}>
                     <div style={{ color:"#e2e8f0", fontWeight:600, fontSize:14 }}>🏢 {c.Client}</div>
-                    <div style={{ color:"#718096", fontSize:12, marginTop:2 }}>📍 {c.Region} · {c.Country} &nbsp;|&nbsp; 👤 {c.Sales}</div>
+                    <div style={{ color:T.text3, fontSize:12, marginTop:2 }}>📍 {c.Region} · {c.Country} &nbsp;|&nbsp; 👤 {c.Sales}</div>
                   </div>
                 ))}
               </div>
@@ -871,7 +972,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
             </div>
           ) : (form.pdfUrl || form.pdfData) ? (
             // Existing PDF (Storage URL or legacy base64)
-            <div style={{ display:"flex", alignItems:"center", gap:10, background:"#0f1420", border:"1px solid #2d3748", borderRadius:8, padding:"10px 14px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, background:T.bg3, border:`1px solid ${T.border}`, borderRadius:8, padding:"10px 14px" }}>
               <span style={{ color:"#a78bfa", fontSize:13 }}>📄 {form.pdfName || "Existing PDF"}</span>
               {form.pdfUrl && <a href={form.pdfUrl} target="_blank" rel="noreferrer" style={{ color:"#60a5fa", fontSize:12, marginLeft:4 }}>View ↗</a>}
               <div style={{ marginLeft:"auto", display:"flex", gap:8 }}>
@@ -884,7 +985,7 @@ function Pipeline({ data, user, onAdd, onUpdate, onDelete, allClients, highlight
             </div>
           ) : (
             // No PDF
-            <label style={{ display:"flex", alignItems:"center", gap:10, background:"#0f1420", border:"2px dashed #2d3748", borderRadius:8, padding:14, cursor:"pointer" }}>
+            <label style={{ display:"flex", alignItems:"center", gap:10, background:T.bg3, border:`2px dashed ${T.border}`, borderRadius:8, padding:14, cursor:"pointer" }}>
               <span style={{ fontSize:22 }}>📎</span>
               <span style={{ color:"#718096", fontSize:13 }}>Click to upload PDF quotation (stored in Firebase Storage)</span>
               <input type="file" accept=".pdf" onChange={handlePdf} style={{ display:"none" }} />
@@ -910,6 +1011,7 @@ function PdfMigrationTool({ pipeline }) { return null; }
 // Each row object should have _sort_<header> keys for sortable columns.
 // Falls back to row[header] if no _sort_ key exists.
 function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={}, highlightId }) {
+  const T = getT();
   const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
   const [sortDir, setSortDir] = useState(sortDesc ? "desc" : "asc");
 
@@ -961,24 +1063,24 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
         </tr></thead>
         <tbody>
           {sorted.length === 0
-            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No data yet</td></tr>
+            ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:T.text4 }}>No data yet</td></tr>
             : sorted.map((row, i) => {
               const origIdx = row._editIdx !== undefined ? row._editIdx : i;
               const isHighlighted = highlightId && row._id === highlightId;
               return (
               <tr key={row._id || i}
                 ref={isHighlighted ? (node => { if(node) node.scrollIntoView({behavior:"smooth",block:"center"}); }) : null}
-                style={{ borderBottom:"1px solid #161b27", background:isHighlighted?"#f59e0b22":"", outline:isHighlighted?"2px solid #f59e0b":"", transition:"all 0.3s" }}
-                onMouseEnter={e=>{ if(!isHighlighted) e.currentTarget.style.background="#1e2433"; }}
+                style={{ borderBottom:`1px solid ${T.bg4}`, background:isHighlighted?"#f59e0b22":"", outline:isHighlighted?"2px solid #f59e0b":"", transition:"all 0.3s" }}
+                onMouseEnter={e=>{ if(!isHighlighted) e.currentTarget.style.background=T.rowHover; }}
                 onMouseLeave={e=>{ if(!isHighlighted) e.currentTarget.style.background=""; }}>
-                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:"#cbd5e0", verticalAlign:"middle" }}>
+                {headers.map(h => <td key={h} style={{ padding:"9px 10px", color:T.text2, verticalAlign:"middle" }}>
                   {h==="Stage" ? <Badge status={row[h]} /> : row[h]}
                 </td>)}
                 <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
                   {(canEdit ? canEdit(row) : true)
-                    ? <><Btn onClick={()=>onEdit(origIdx)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
+                    ? <><Btn onClick={()=>onEdit(origIdx)} style={{ background:T.bg4, color:T.text2, padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
                        <Btn onClick={()=>onDelete(origIdx)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn></>
-                    : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
+                    : <span style={{ color:T.text4, fontSize:12 }}>—</span>}
                 </td>
               </tr>
             );})}
@@ -995,7 +1097,7 @@ function ClientOwnerSearch({ allClients }) {
     : [];
   function doSearch() { if (query.trim()) setSearched(true); }
   return (
-    <div style={{ background:"#0a0e17", border:"1px solid #2d3748", borderRadius:14, padding:"18px 20px", marginBottom:20 }}>
+    <div style={{ background:T.bg3, border:`1px solid ${T.border}`, borderRadius:14, padding:"18px 20px", marginBottom:20 }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
         <span style={{ fontSize:18 }}>🔍</span>
         <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>Client Ownership Check 客户归属查询</span>
@@ -1036,7 +1138,7 @@ function ClientOwnerSearch({ allClients }) {
                 </div>
               </div>
               {results.map((r, i) => (
-                <div key={i} style={{ background:"#1a1f2e", border:"1px solid #ef444422", borderRadius:10, padding:"14px 18px", marginBottom:8, display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:12 }}>
+                <div key={i} style={{ background:T.bg2, border:"1px solid #ef444422", borderRadius:10, padding:"14px 18px", marginBottom:8, display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:12 }}>
                   <div>
                     <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>🏢 Client 客户</div>
                     <div style={{ color:"#e2e8f0", fontWeight:700, fontSize:14 }}>{r.Client}</div>
@@ -1077,6 +1179,7 @@ function ClientOwnerSearch({ allClients }) {
 
 // ─── CLIENT MANAGEMENT 客户管理 ────────────────────────────────────────────────
 function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFollowup }) {
+  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -1091,7 +1194,37 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
   const filtered = applyFilters(visible, filters, "LastContact");
   const exportCols = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Notes"];
   const headers = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact"];
-  const rows = filtered.map((d,idx)=>({...d, _editIdx:idx, _sortLastContact: typeof d.LastContact==="string"?d.LastContact:String(d.LastContact||""), _canEdit:isSuper||d._owner===user.name}));
+  const rows = filtered.map((d,idx)=>({
+    ...d,
+    _editIdx: idx,
+    _sortLastContact: typeof d.LastContact==="string"?d.LastContact:String(d.LastContact||""),
+    _sortClient: (d.Client||"").toLowerCase(),
+    _sortRegion: (d.Region||"").toLowerCase(),
+    _sortCountry: (d.Country||"").toLowerCase(),
+    _sortStatus: (d.Status||"").toLowerCase(),
+    _sortSales: (d.Sales||"").toLowerCase(),
+    _canEdit: isSuper||d._owner===user.name,
+    // Display-ready cells for SortableTable
+    "Client_cell": <span style={{ color:"#a78bfa", fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}
+      onClick={()=>setHistoryClient(historyClient===d.Client?null:d.Client)}>
+      {d.Client} <span style={{ color:"#4a5568", fontSize:10 }}>📋</span>
+    </span>,
+    "Phone_cell": <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <span>{d.Phone||"—"}</span>
+      {d.Phone && <a href={`https://wa.me/${d.Phone.replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer"
+        onClick={e=>e.stopPropagation()}
+        style={{ background:"#1a3a1a", border:"1px solid #10b98133", color:"#10b981", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap" }}>💬 WA</a>}
+    </div>,
+    "Email_cell": <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <span style={{ maxWidth:150, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block" }}>{d.Email||"—"}</span>
+      {d.Email && <a href="#" onClick={e=>{e.preventDefault();e.stopPropagation();window.open(`https://qiye.aliyun.com/alimail/compose?to=${encodeURIComponent(d.Email)}`,"_blank");}}
+        style={{ background:"#1a2a3a", border:"1px solid #3b82f633", color:"#60a5fa", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap", cursor:"pointer" }}>✉️ Mail</a>}
+    </div>,
+  }));
+  const clientSortKeyMap = {
+    "Client":"_sortClient", "Region":"_sortRegion", "Country":"_sortCountry",
+    "Status":"_sortStatus", "Sales":"_sortSales", "LastContact":"_sortLastContact",
+  };
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
 
   function checkDuplicate(name) {
@@ -1120,10 +1253,10 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
       <ClientOwnerSearch allClients={data} />
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} clients</div>
+        <div style={{ color:T.text2, fontSize:14 }}><b style={{ color:T.text }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} clients</div>
         <div style={{ display:"flex", gap:8 }}>
-          <Btn onClick={()=>exportCSV(filtered,"Clients_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
-          <Btn onClick={()=>exportPDF(filtered,"Clients",exportCols,"Client Management 客户管理 — Flowcolour")} style={{ background:"#1e2a3a", color:"#60a5fa", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
+          <Btn onClick={()=>exportCSV(filtered,"Clients_"+new Date().toLocaleDateString(),exportCols)} style={{ background:getT().bg3, color:"#10b981", border:"1px solid #10b98144", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
+          <Btn onClick={()=>exportPDF(filtered,"Clients",exportCols,"Client Management 客户管理 — Flowcolour")} style={{ background:getT().bg3, color:"#60a5fa", border:"1px solid #60a5fa44", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
           <button onClick={()=>{setForm(empty);setEditItem(null);setDupWarning(null);setModal(true);}} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Add Client</button>
         </div>
       </div>
@@ -1134,7 +1267,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
       {historyClient && (() => {
         const clientFollowups = (followups||[]).filter(f=>f.client===historyClient).sort((a,b)=>b.date>a.date?1:-1);
         return (
-          <div style={{ background:"#0d1117", border:"1px solid #667eea44", borderRadius:14, padding:"18px 20px", marginBottom:16 }}>
+          <div style={{ background:T.bg3, border:"1px solid #667eea44", borderRadius:14, padding:"18px 20px", marginBottom:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
               <div>
                 <span style={{ color:"#a78bfa", fontWeight:700, fontSize:15 }}>📋 Follow-up History — {historyClient}</span>
@@ -1163,7 +1296,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
             {clientFollowups.length === 0
               ? <div style={{ color:"#4a5568", fontSize:13, textAlign:"center", padding:"16px 0" }}>No follow-up records yet. Add the first one above!</div>
               : clientFollowups.map((f,i) => (
-                <div key={f._id||i} style={{ display:"flex", gap:12, padding:"8px 12px", background:"#1a1f2e", borderRadius:8, marginBottom:6, alignItems:"flex-start" }}>
+                <div key={f._id||i} style={{ display:"flex", gap:12, padding:"8px 12px", background:T.bg2, borderRadius:8, marginBottom:6, alignItems:"flex-start" }}>
                   <span style={{ color:"#667eea", fontSize:12, whiteSpace:"nowrap", fontWeight:600, minWidth:80 }}>{f.date}</span>
                   <span style={{ color:"#a0aec0", fontSize:11, minWidth:60 }}>👤 {f.sales}</span>
                   <span style={{ color:"#e2e8f0", fontSize:13, flex:1 }}>{f.note}</span>
@@ -1174,64 +1307,27 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
         );
       })()}
 
-      {/* Client table with WhatsApp + Email buttons */}
-      <div style={{ overflowX:"auto" }}>
-        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-          <thead><tr>
-            {["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Actions"].map(h=>(
-              <th key={h} style={{ textAlign:"left", padding:"10px 10px", color:"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap" }}>{h}</th>
-            ))}
-          </tr></thead>
-          <tbody>
-            {filtered.map((d,i) => (
-              <tr key={d._id||i} style={{ borderBottom:"1px solid #161b27" }}
-                onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
-                onMouseLeave={e=>e.currentTarget.style.background=""}>
-                <td style={{ padding:"9px 10px", color:"#a78bfa", fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}
-                  onClick={()=>setHistoryClient(historyClient===d.Client?null:d.Client)}>
-                  {d.Client} <span style={{ color:"#4a5568", fontSize:10 }}>📋</span>
-                </td>
-                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>{d.Contact||"—"}</td>
-                <td style={{ padding:"9px 10px", color:"#cbd5e0", whiteSpace:"nowrap" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <span>{d.Phone||"—"}</span>
-                    {d.Phone && (
-                      <a href={`https://wa.me/${d.Phone.replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer"
-                        onClick={e=>e.stopPropagation()}
-                        style={{ background:"#1a3a1a", border:"1px solid #10b98133", color:"#10b981", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap" }}>
-                        💬 WA
-                      </a>
-                    )}
-                  </div>
-                </td>
-                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block" }}>{d.Email||"—"}</span>
-                    {d.Email && (
-                      <a href="#" onClick={e=>{e.preventDefault();e.stopPropagation();window.open(`https://qiye.aliyun.com/alimail/compose?to=${encodeURIComponent(d.Email)}`,"_blank");}}
-                        style={{ background:"#1a2a3a", border:"1px solid #3b82f633", color:"#60a5fa", borderRadius:5, padding:"2px 6px", fontSize:10, textDecoration:"none", whiteSpace:"nowrap", cursor:"pointer" }}>
-                        ✉️ Mail
-                      </a>
-                    )}
-                  </div>
-                </td>
-                <td style={{ padding:"9px 10px", color:"#a0aec0" }}>{d.Region||"—"}</td>
-                <td style={{ padding:"9px 10px", color:"#718096", fontSize:11 }}>{d.Country||"—"}</td>
-                <td style={{ padding:"9px 10px" }}><Badge status={d.Status||"Pending"} /></td>
-                <td style={{ padding:"9px 10px", color:"#cbd5e0" }}>{d.Sales||"—"}</td>
-                <td style={{ padding:"9px 10px", color:"#f59e0b", fontSize:12, whiteSpace:"nowrap" }}>{d.LastContact||"—"}</td>
-                <td style={{ padding:"9px 10px", whiteSpace:"nowrap" }}>
-                  {(isSuper||d._owner===user.name) ? <>
-                    <Btn onClick={()=>openEdit(i)} style={{ background:"#2d3748", color:"#a0aec0", padding:"4px 8px", fontSize:11, marginRight:4 }}>Edit</Btn>
-                    <Btn onClick={()=>del(i)} style={{ background:"#3d1515", color:"#fc8181", padding:"4px 8px", fontSize:11 }}>Del</Btn>
-                  </> : <span style={{ color:"#4a5568", fontSize:12 }}>—</span>}
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <tr><td colSpan={10} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No clients found</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      {/* Client table with sorting + WhatsApp + Email buttons */}
+      <SortableTable
+        headers={["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact"]}
+        rows={rows.map(r => ({
+          ...r,
+          Client: r["Client_cell"],
+          Phone: r["Phone_cell"],
+          Email: r["Email_cell"],
+          Region: r.Region||"—",
+          Country: r.Country||"—",
+          Status: <Badge status={r.Status||"Pending"} />,
+          Sales: r.Sales||"—",
+          LastContact: <span style={{ color:"#f59e0b", fontSize:12, whiteSpace:"nowrap" }}>{r.LastContact||"—"}</span>,
+        }))}
+        onEdit={i => openEdit(rows[i]?._editIdx ?? i)}
+        onDelete={i => del(rows[i]?._editIdx ?? i)}
+        canEdit={r => isSuper || r._owner === user.name}
+        defaultSort="LastContact"
+        sortDesc={true}
+        sortKeyMap={clientSortKeyMap}
+      />
 
       {modal && <Modal title={editItem?"Edit Client":"New Client 新增客户"} onClose={()=>{setModal(false);setDupWarning(null);}}>
         <Field label="Client 公司名称">
@@ -1247,7 +1343,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
               ⚠️ Similar client already exists! 检测到相似客户名称
             </div>
             {dupWarning.map((d,i) => (
-              <div key={i} style={{ display:"flex", gap:16, fontSize:13, padding:"6px 10px", background:"#1a1f2e", borderRadius:8, marginBottom:4 }}>
+              <div key={i} style={{ display:"flex", gap:16, fontSize:13, padding:"6px 10px", background:T.bg2, borderRadius:8, marginBottom:4 }}>
                 <span style={{ color:"#e2e8f0", fontWeight:600 }}>🏢 {d.Client}</span>
                 <span style={{ color:"#a78bfa" }}>👤 {d.Sales}</span>
                 <span style={{ color:"#718096" }}>📍 {d.Region} · {d.Country}</span>
@@ -1283,6 +1379,7 @@ function ClientMgmt({ data, user, onAdd, onUpdate, onDelete, followups, onAddFol
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
 function Reports({ data, user, onAdd, onUpdate, onDelete }) {
+  const T = getT();
   const isSuper = user.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -1337,26 +1434,26 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   const canEdit = (d) => isSuper || d._owner===user.name;
 
   const ReportCard = ({d}) => (
-    <div style={{ background:"#0f1420", border:"1px solid #2d3748", borderRadius:12, padding:14, position:"relative", minHeight:120 }}>
+    <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:14, position:"relative", minHeight:120 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
         <div>
           <div style={{ color:"#a78bfa", fontWeight:700, fontSize:13 }}>{d.Sales}</div>
-          <div style={{ color:"#4a5568", fontSize:11, marginTop:2 }}>{d.Type} · {d.Date}</div>
+          <div style={{ color:T.text4, fontSize:11, marginTop:2 }}>{d.Type} · {d.Date}</div>
         </div>
         {canEdit(d) && (
           <div style={{ display:"flex", gap:4 }}>
-            <Btn onClick={()=>openEdit(d)} style={{ background:"#2d3748", color:"#a0aec0", padding:"3px 8px", fontSize:11 }}>Edit</Btn>
+            <Btn onClick={()=>openEdit(d)} style={{ background:T.bg4, color:T.text2, padding:"3px 8px", fontSize:11 }}>Edit</Btn>
             <Btn onClick={()=>del(d)} style={{ background:"#3d1515", color:"#fc8181", padding:"3px 8px", fontSize:11 }}>Del</Btn>
           </div>
         )}
       </div>
       <div style={{ marginBottom:8 }}>
-        <div style={{ color:"#718096", fontSize:10, fontWeight:600, marginBottom:3 }}>✅ COMPLETED</div>
-        <div style={{ color:"#cbd5e0", fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Done||"—"}</div>
+        <div style={{ color:T.text3, fontSize:10, fontWeight:600, marginBottom:3 }}>✅ COMPLETED</div>
+        <div style={{ color:T.text, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Done||"—"}</div>
       </div>
       <div style={{ marginBottom: d.Issues ? 8 : 0 }}>
-        <div style={{ color:"#718096", fontSize:10, fontWeight:600, marginBottom:3 }}>📋 NEXT PLAN</div>
-        <div style={{ color:"#a0aec0", fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Plan||"—"}</div>
+        <div style={{ color:T.text3, fontSize:10, fontWeight:600, marginBottom:3 }}>📋 NEXT PLAN</div>
+        <div style={{ color:T.text2, fontSize:12, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{d.Plan||"—"}</div>
       </div>
       {d.Issues && (
         <div style={{ background:"#2d1a1a", borderRadius:8, padding:"6px 10px", marginTop:8 }}>
@@ -1370,19 +1467,19 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-        <div style={{ color:"#a0aec0", fontSize:14 }}><b style={{ color:"#e2e8f0" }}>{filtered.length}</b> reports · <b style={{ color:"#718096", fontSize:12 }}>{weekKeys.length} weeks</b></div>
+        <div style={{ color:T.text2, fontSize:14 }}><b style={{ color:T.text }}>{filtered.length}</b> reports · <b style={{ color:T.text3, fontSize:12 }}>{weekKeys.length} weeks</b></div>
         <div style={{ display:"flex", gap:8 }}>
           {isSuper && <>
-            <Btn onClick={()=>exportCSV(filtered,"Reports_"+new Date().toLocaleDateString(),exportCols)} style={{ background:"#1e3a2e", color:"#10b981", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
-            <Btn onClick={()=>exportPDF(filtered,"Reports",exportCols,"Weekly Activity Reports 工作汇报 — Flowcolour")} style={{ background:"#1e2a3a", color:"#60a5fa", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
+            <Btn onClick={()=>exportCSV(filtered,"Reports_"+new Date().toLocaleDateString(),exportCols)} style={{ background:getT().bg3, color:"#10b981", border:"1px solid #10b98144", padding:"8px 12px", fontSize:12 }}>⬇ Excel</Btn>
+            <Btn onClick={()=>exportPDF(filtered,"Reports",exportCols,"Weekly Activity Reports 工作汇报 — Flowcolour")} style={{ background:getT().bg3, color:"#60a5fa", border:"1px solid #60a5fa44", padding:"8px 12px", fontSize:12 }}>⬇ PDF</Btn>
           </>}
           <button onClick={()=>{setForm(empty);setEditItem(null);setModal(true);}} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", padding:"9px 18px", borderRadius:10, cursor:"pointer", fontWeight:600, fontSize:13 }}>+ Submit Report</button>
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} showPerson={true} showRegion={false} />
-      <div style={{ color:"#4a5568", fontSize:12, marginBottom:16 }}>📢 Reports visible to all members · grouped by week (newest first) · Sunday as week start</div>
+      <div style={{ color:T.text4, fontSize:12, marginBottom:16 }}>📢 Reports visible to all members · grouped by week (newest first) · Sunday as week start</div>
 
-      {weekKeys.length === 0 && <div style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No reports yet</div>}
+      {weekKeys.length === 0 && <div style={{ textAlign:"center", padding:40, color:T.text4 }}>No reports yet</div>}
 
       {weekKeys.map(ws => {
         const weekReports = weekMap[ws];
@@ -1404,8 +1501,8 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
               <div style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", borderRadius:8, padding:"4px 14px", color:"#fff", fontSize:13, fontWeight:700 }}>
                 📅 {weekLabel(ws)}
               </div>
-              <div style={{ color:"#4a5568", fontSize:12 }}>{weekReports.length} report{weekReports.length!==1?"s":""}</div>
-              <div style={{ flex:1, height:1, background:"#1e2433" }} />
+              <div style={{ color:T.text4, fontSize:12 }}>{weekReports.length} report{weekReports.length!==1?"s":""}</div>
+              <div style={{ flex:1, height:1, background:T.border2 }} />
             </div>
             {/* 5-column grid */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10 }}>
@@ -1413,9 +1510,9 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
                 const reps = byPerson[name];
                 if (!reps) {
                   return (
-                    <div key={name} style={{ background:"#0f1420", border:"1px dashed #1e2433", borderRadius:12, padding:14, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", opacity:0.5 }}>
-                      <div style={{ color:"#4a5568", fontSize:12, fontWeight:600 }}>{name}</div>
-                      <div style={{ color:"#2d3748", fontSize:11, marginTop:4 }}>No report</div>
+                    <div key={name} style={{ background:T.bg, border:`1px dashed ${T.border2}`, borderRadius:12, padding:14, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", opacity:0.5 }}>
+                      <div style={{ color:T.text4, fontSize:12, fontWeight:600 }}>{name}</div>
+                      <div style={{ color:T.border, fontSize:11, marginTop:4 }}>No report</div>
                     </div>
                   );
                 }
@@ -1446,6 +1543,7 @@ function Reports({ data, user, onAdd, onUpdate, onDelete }) {
 
 // ─── WEEKLY ACTIVITY 行为管理 (admin only) ────────────────────────────────────
 function WeeklyActivity({ pipeline, tracking, reports }) {
+  const T = getT();
   const [filters, setFilters] = useState({});
   const [weekFilter, setWeekFilter] = useState("all");
   const now = new Date();
@@ -1466,20 +1564,20 @@ function WeeklyActivity({ pipeline, tracking, reports }) {
     <div>
       <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
         {[["all","All Time"],["week","This Week"],["month","This Month"]].map(([v,l])=>(
-          <Btn key={v} onClick={()=>setWeekFilter(v)} style={{ background:weekFilter===v?"#667eea":"#2d3748", color:weekFilter===v?"#fff":"#a0aec0", padding:"8px 16px", fontSize:13 }}>{l}</Btn>
+          <Btn key={v} onClick={()=>setWeekFilter(v)} style={{ background:weekFilter===v?"#667eea":T.bg4, color:weekFilter===v?"#fff":T.text2, padding:"8px 16px", fontSize:13 }}>{l}</Btn>
         ))}
       </div>
       <div style={{ display:"grid", gap:14 }}>
         {stats.map(s => (
-          <div key={s.name} style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:12, padding:"16px 20px" }}>
+          <div key={s.name} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 20px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:16 }}>👤 {s.name}</span>
+              <span style={{ color:T.text, fontWeight:700, fontSize:16 }}>👤 {s.name}</span>
               <span style={{ color:"#10b981", fontWeight:700, fontSize:15 }}>Revenue: {s.rev.toLocaleString()}</span>
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
               {[["📞 Contacts",s.contacts,"#3b82f6"],["💬 Quotes",s.quotes,"#a78bfa"],["✅ Won",s.won,"#10b981"],["📝 Reports",s.reps,"#f59e0b"]].map(([label,val,color])=>(
-                <div key={label} style={{ background:"#0f1420", borderRadius:10, padding:"12px 14px", textAlign:"center" }}>
-                  <div style={{ color:"#718096", fontSize:11, marginBottom:6 }}>{label}</div>
+                <div key={label} style={{ background:T.bg3, borderRadius:10, padding:"12px 14px", textAlign:"center" }}>
+                  <div style={{ color:T.text3, fontSize:11, marginBottom:6 }}>{label}</div>
                   <div style={{ color, fontSize:26, fontWeight:800 }}>{val}</div>
                 </div>
               ))}
@@ -1489,7 +1587,7 @@ function WeeklyActivity({ pipeline, tracking, reports }) {
                 <span style={{ color:"#718096", fontSize:11 }}>Activity Level</span>
                 <span style={{ color:"#a0aec0", fontSize:11 }}>{s.contacts} contacts</span>
               </div>
-              <div style={{ background:"#0f1420", borderRadius:6, height:8 }}>
+              <div style={{ background:T.bg3, borderRadius:6, height:8 }}>
                 <div style={{ height:"100%", width:Math.min((s.contacts/max*100),100)+"%", background:"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.5s" }} />
               </div>
             </div>
@@ -1502,6 +1600,7 @@ function WeeklyActivity({ pipeline, tracking, reports }) {
 
 // ─── CLIENT HEALTH 客户健康度 (admin only) ────────────────────────────────────
 function ClientHealth({ pipeline, clients, user }) {
+  const T = getT();
   const isSuper = user?.role === "admin";
   const [riskFilter, setRiskFilter] = useState("all");
   const [salesFilter, setSalesFilter] = useState("");
@@ -1568,19 +1667,19 @@ function ClientHealth({ pipeline, clients, user }) {
   return (
     <div>
       {/* Filter row */}
-      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center", padding:"10px 14px", background:"#0a0e17", borderRadius:10, border:"1px solid #1e2433" }}>
-        <span style={{ color:"#718096", fontSize:12, whiteSpace:"nowrap" }}>Risk:</span>
+      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center", padding:"10px 14px", background:T.bg3, borderRadius:10, border:`1px solid ${T.border2}` }}>
+        <span style={{ color:T.text3, fontSize:12, whiteSpace:"nowrap" }}>Risk:</span>
         {[["all","All"],["High","🔴 High"],["Medium","🟡 Medium"],["Low","🟢 Healthy"]].map(([v,l])=>(
-          <Btn key={v} onClick={()=>setRiskFilter(v)} style={{ background:riskFilter===v?"#667eea":"#2d3748", color:riskFilter===v?"#fff":"#a0aec0", padding:"6px 12px", fontSize:12 }}>{l}</Btn>
+          <Btn key={v} onClick={()=>setRiskFilter(v)} style={{ background:riskFilter===v?"#667eea":T.bg4, color:riskFilter===v?"#fff":T.text2, padding:"6px 12px", fontSize:12 }}>{l}</Btn>
         ))}
-        <div style={{ width:1, height:20, background:"#2d3748", margin:"0 4px" }} />
-        {isSuper && <><span style={{ color:"#718096", fontSize:12, whiteSpace:"nowrap" }}>Sales:</span>
-        <select style={{ ...SS, width:"auto", minWidth:120 }} value={salesFilter} onChange={e=>setSalesFilter(e.target.value)}>
+        <div style={{ width:1, height:20, background:T.border, margin:"0 4px" }} />
+        {isSuper && <><span style={{ color:T.text3, fontSize:12, whiteSpace:"nowrap" }}>Sales:</span>
+        <select style={{ ...SS, width:"auto", minWidth:120, background:T.inputBg, color:T.text, borderColor:T.border }} value={salesFilter} onChange={e=>setSalesFilter(e.target.value)}>
           <option value="">All Sales</option>
           {SALES_MEMBERS.map(m=><option key={m} value={m}>{m}</option>)}
         </select></>}
         {(riskFilter!=="all"||(isSuper&&salesFilter)) && (
-          <Btn onClick={()=>{setRiskFilter("all");setSalesFilter("");}} style={{ background:"#2d3748", color:"#a0aec0", padding:"6px 12px", fontSize:12 }}>✕ Clear</Btn>
+          <Btn onClick={()=>{setRiskFilter("all");setSalesFilter("");}} style={{ background:T.bg4, color:T.text2, padding:"6px 12px", fontSize:12 }}>✕ Clear</Btn>
         )}
         <div style={{ marginLeft:"auto", display:"flex", gap:12, fontSize:12, color:"#718096" }}>
           <span>🔴 {allRows.filter(r=>r.risk==="High").length}</span>
@@ -1588,29 +1687,29 @@ function ClientHealth({ pipeline, clients, user }) {
           <span>🟢 {allRows.filter(r=>r.risk==="Low").length}</span>
         </div>
       </div>
-      <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序 · <b style={{ color:"#e2e8f0" }}>{sorted.length}</b>{sorted.length<allRows.length?` / ${allRows.length}`:""} clients</div>
+      <div style={{ color:T.text4, fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序 · <b style={{ color:T.text }}>{sorted.length}</b>{sorted.length<allRows.length?` / ${allRows.length}`:""} clients</div>
 
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
           <thead><tr>
             {COLS.map(([col,label])=>(
               <th key={col} onClick={()=>toggleSort(col)}
-                style={{ textAlign:"left", padding:"10px 12px", color:sortCol===col?"#a78bfa":"#718096", fontWeight:600, fontSize:11, borderBottom:"1px solid #2d3748", whiteSpace:"nowrap", cursor:"pointer", userSelect:"none" }}>
+                style={{ textAlign:"left", padding:"10px 12px", color:sortCol===col?"#a78bfa":T.text3, fontWeight:600, fontSize:11, borderBottom:`1px solid ${T.border}`, whiteSpace:"nowrap", cursor:"pointer", userSelect:"none" }}>
                 {label} {sortCol===col?(sortDir==="asc"?"↑":"↓"):<span style={{ opacity:0.3 }}>↕</span>}
               </th>
             ))}
           </tr></thead>
           <tbody>
-            {sorted.length===0 ? <tr><td colSpan={7} style={{ textAlign:"center", padding:40, color:"#4a5568" }}>No client data</td></tr>
+            {sorted.length===0 ? <tr><td colSpan={7} style={{ textAlign:"center", padding:40, color:T.text4 }}>No client data</td></tr>
               : sorted.map((r,i) => (
-              <tr key={i} style={{ borderBottom:"1px solid #161b27" }}
-                onMouseEnter={e=>e.currentTarget.style.background="#1e2433"}
+              <tr key={i} style={{ borderBottom:`1px solid ${T.bg4}` }}
+                onMouseEnter={e=>e.currentTarget.style.background=T.rowHover}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
-                <td style={{ padding:"10px 12px", color:"#e2e8f0", fontWeight:600 }}>{r.client}</td>
-                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.sales}</td>
-                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.region}</td>
-                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.country}</td>
-                <td style={{ padding:"10px 12px", color:"#a0aec0" }}>{r.lastOrder||"—"}</td>
+                <td style={{ padding:"10px 12px", color:T.text, fontWeight:600 }}>{r.client}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.sales}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.region}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.country}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.lastOrder||"—"}</td>
                 <td style={{ padding:"10px 12px", color:r.riskColor, fontWeight:600 }}>{r.dayStr}</td>
                 <td style={{ padding:"10px 12px" }}>
                   <span style={{ background:r.riskColor+"22", color:r.riskColor, border:`1px solid ${r.riskColor}44`, padding:"3px 12px", borderRadius:20, fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>{r.riskLabel}</span>
@@ -1626,6 +1725,7 @@ function ClientHealth({ pipeline, clients, user }) {
 
 // ─── SALES PERSON DETAIL 业务员详情 ──────────────────────────────────────────
 function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose }) {
+  const T = getT();
   const myPipeline = pipeline.filter(d => d.Sales===name || d._owner===name);
   const myTracking = tracking.filter(d => d.Sales===name || d._owner===name);
   const myClients  = clients.filter(d => d.Sales===name || d._owner===name);
@@ -1665,7 +1765,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
   const sourceList = Object.entries(bySource).sort((a,b)=>b[1]-a[1]);
 
   const StatCard = ({label, value, sub, color="#e2e8f0"}) => (
-    <div style={{ background:"#0f1420", borderRadius:12, padding:"14px 18px", textAlign:"center" }}>
+    <div style={{ background:T.bg3, borderRadius:12, padding:"14px 18px", textAlign:"center" }}>
       <div style={{ color:"#718096", fontSize:11, marginBottom:6 }}>{label}</div>
       <div style={{ color, fontSize:22, fontWeight:800 }}>{value}</div>
       {sub && <div style={{ color:"#4a5568", fontSize:11, marginTop:3 }}>{sub}</div>}
@@ -1674,7 +1774,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1500, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:20, overflowY:"auto" }}>
-      <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:20, width:"100%", maxWidth:860, marginTop:20 }}>
+      <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:20, width:"100%", maxWidth:860, marginTop:20 }}>
         {/* Header */}
         <div style={{ background:"linear-gradient(135deg,#1e1535,#1a2540)", borderRadius:"20px 20px 0 0", padding:"24px 28px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div>
@@ -1723,7 +1823,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:18 }}>
             {/* Region Breakdown */}
-            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px" }}>
+            <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px" }}>
               <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:12 }}>🌍 Revenue by Region 地区分布</div>
               {regionList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No orders yet</div>
                 : regionList.map(([region,amt])=>{
@@ -1744,7 +1844,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
             {/* Source & Product */}
             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-              <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", flex:1 }}>
+              <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px", flex:1 }}>
                 <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:10 }}>📡 Lead Sources 来源分布</div>
                 {sourceList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No tracking data</div>
                   : sourceList.map(([src,cnt])=>(
@@ -1754,7 +1854,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
                     </div>
                   ))}
               </div>
-              <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", flex:1 }}>
+              <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px", flex:1 }}>
                 <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:10 }}>🏭 Industries Tracked 行业别</div>
                 {industryList.length===0 ? <div style={{ color:"#4a5568", fontSize:12 }}>No tracking data</div>
                   : industryList.map(([ind,cnt])=>(
@@ -1769,7 +1869,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
           {/* Active Pipeline */}
           {pending.length > 0 && (
-            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px", marginBottom:14 }}>
+            <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px", marginBottom:14 }}>
               <div style={{ color:"#a0aec0", fontSize:13, fontWeight:600, marginBottom:12 }}>🔄 Active Pipeline 进行中的机会</div>
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
@@ -1790,7 +1890,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
           {/* Recent Orders */}
           {orders.length > 0 && (
-            <div style={{ background:"#0f1420", borderRadius:14, padding:"16px 18px" }}>
+            <div style={{ background:T.bg3, borderRadius:14, padding:"16px 18px" }}>
               <div style={{ color:"#10b981", fontSize:13, fontWeight:600, marginBottom:12 }}>✅ Closed Orders 已成交订单</div>
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
@@ -1818,6 +1918,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 
 // ─── SALES DASHBOARD 总监主页 (admin only) ────────────────────────────────────
 function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSave }) {
+  const T = getT();
   const [filters, setFilters] = useState({});
   const [selectedSales, setSelectedSales] = useState(null);
   const [goalsModal, setGoalsModal] = useState(false);
@@ -1875,13 +1976,13 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
       {/* Goals Setting Modal */}
       {goalsModal && (
         <Modal title="🎯 Set Monthly Targets 设置月度目标" onClose={()=>setGoalsModal(false)}>
-          <div style={{ marginBottom:12, color:"#a0aec0", fontSize:13 }}>Set annual profit targets for each sales member. 设置年度利润目标</div>
+          <div style={{ marginBottom:12, color:T.text2, fontSize:13 }}>Set annual profit targets for each sales member. 设置年度利润目标</div>
           <div style={{ display:"grid", gap:10 }}>
             {SALES_MEMBERS.map(name => {
               const g = getGoal(name);
               return (
-                <div key={name} style={{ background:"#0f1420", borderRadius:10, padding:"12px 16px", border:"1px solid #2d3748" }}>
-                  <div style={{ color:"#e2e8f0", fontWeight:700, marginBottom:8 }}>👤 {name}</div>
+                <div key={name} style={{ background:T.bg3, borderRadius:10, padding:"12px 16px", border:`1px solid ${T.border}` }}>
+                  <div style={{ color:T.text, fontWeight:700, marginBottom:8 }}>👤 {name}</div>
                   <Field label="Annual Profit Target 年度利润目标 ($)">
                     <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.yearly?.profit??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 100000" />
                   </Field>
@@ -1901,41 +2002,41 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
       {/* KPI Cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:24 }}>
         {kpis.map(({label,value,sub,color,icon}) => (
-          <div key={label} style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:14, padding:"16px 18px" }}>
+          <div key={label} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:14, padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-              <div style={{ color:"#718096", fontSize:11, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"80%" }}>{label}</div>
+              <div style={{ color:T.text3, fontSize:11, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"80%" }}>{label}</div>
               <span style={{ fontSize:18, flexShrink:0 }}>{icon}</span>
             </div>
             <div style={{ color, fontSize:22, fontWeight:800, whiteSpace:"nowrap" }}>{value}</div>
-            <div style={{ color:"#4a5568", fontSize:11, marginTop:4 }}>{sub}</div>
+            <div style={{ color:T.text4, fontSize:11, marginTop:4 }}>{sub}</div>
           </div>
         ))}
       </div>
 
       {/* Sales Performance */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-        <h4 style={{ color:"#e2e8f0", margin:0, fontSize:15 }}>
+        <h4 style={{ color:T.text, margin:0, fontSize:15 }}>
           👥 Sales Performance 业务业绩排行
-          <span style={{ color:"#4a5568", fontSize:12, fontWeight:400, marginLeft:10 }}>Click a row to view full analysis</span>
+          <span style={{ color:T.text4, fontSize:12, fontWeight:400, marginLeft:10 }}>Click a row to view full analysis</span>
         </h4>
         <Btn onClick={()=>{setGoalForm({});setGoalsModal(true);}} style={{ background:"#1a2a3a", color:"#60a5fa", padding:"8px 14px", fontSize:12 }}>🎯 Set Targets 设置目标</Btn>
       </div>
       <div style={{ display:"grid", gap:10, marginBottom:24 }}>
         {byPerson.sort((a,b)=>b.rev-a.rev).map((p,i) => (
           <div key={p.name} onClick={()=>setSelectedSales(p.name)}
-            style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:12, padding:"14px 20px", cursor:"pointer", transition:"all 0.15s" }}
-            onMouseEnter={e=>{e.currentTarget.style.background="#1e2840";e.currentTarget.style.borderColor="#667eea55";}}
-            onMouseLeave={e=>{e.currentTarget.style.background="#1a1f2e";e.currentTarget.style.borderColor="#2d3748";}}>
+            style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:"14px 20px", cursor:"pointer", transition:"all 0.15s" }}
+            onMouseEnter={e=>{e.currentTarget.style.background=T.rowHover;e.currentTarget.style.borderColor="#667eea55";}}
+            onMouseLeave={e=>{e.currentTarget.style.background=T.bg2;e.currentTarget.style.borderColor=T.border;}}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                 <span style={{ color:["#f59e0b","#9ca3af","#cd7f32"][i]||"#4a5568", fontWeight:800, fontSize:20, width:28, textAlign:"center" }}>{i+1}</span>
-                <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:15 }}>{p.name}</span>
+                <span style={{ color:T.text, fontWeight:700, fontSize:15 }}>{p.name}</span>
               </div>
               <div style={{ display:"flex", gap:20 }}>
                 {[[p.rev.toLocaleString(),"Revenue","#10b981"],[p.orders,"Orders","#3b82f6"],[p.pipe,"Pipeline","#a78bfa"],[p.leads,"Leads","#f59e0b"],[p.forecast.toLocaleString(),"Forecast","#ec4899"]].map(([val,lbl,c])=>(
                   <div key={lbl} style={{ textAlign:"center", minWidth:50 }}>
                     <div style={{ color:c, fontSize:15, fontWeight:700 }}>{val}</div>
-                    <div style={{ color:"#4a5568", fontSize:10 }}>{lbl}</div>
+                    <div style={{ color:T.text4, fontSize:10 }}>{lbl}</div>
                   </div>
                 ))}
               </div>
@@ -1943,13 +2044,13 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
             {/* Profit progress bar vs target */}
             <div>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                <span style={{ color:"#4a5568", fontSize:10 }}>
+                <span style={{ color:T.text4, fontSize:10 }}>
                   Profit 利润: ${p.totalProfit.toLocaleString()}
                   {p.pctProfit!==null ? ` — ${Math.round(p.pctProfit)}% of $${p.targetProfit.toLocaleString()} target` : " — no target set"}
                 </span>
                 {p.pctProfit>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
               </div>
-              <div style={{ background:"#0f1420", borderRadius:6, height:6 }}>
+              <div style={{ background:T.bg3, borderRadius:6, height:6 }}>
                 <div style={{ height:"100%", width:(p.pctProfit!==null?p.pctProfit:Math.min(p.rev/maxRev*100,100))+"%", background:p.pctProfit!==null?(p.pctProfit>=100?"linear-gradient(90deg,#10b981,#34d399)":"linear-gradient(90deg,#667eea,#f59e0b)"):"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.6s" }} />
               </div>
             </div>
@@ -1958,18 +2059,18 @@ function SalesDashboard({ pipeline, tracking, clients, reports, goals, onGoalSav
       </div>
 
       {/* Pipeline Stage Distribution */}
-      <h4 style={{ color:"#e2e8f0", margin:"0 0 10px", fontSize:15 }}>📊 Pipeline by Stage 阶段分布</h4>
+      <h4 style={{ color:T.text, margin:"0 0 10px", fontSize:15 }}>📊 Pipeline by Stage 阶段分布</h4>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
         {["Quotation","Negotiation","Order"].map(stage => {
           const cnt = filtered.filter(d=>d.Stage===stage).length;
           const amt = filtered.filter(d=>d.Stage===stage).reduce((s,d)=>s+Number(d.Amount||0),0);
           const c = STATUS_COLORS[stage]||"#718096";
           return (
-            <div key={stage} style={{ background:"#1a1f2e", border:`1px solid ${c}44`, borderRadius:12, padding:"18px 22px", textAlign:"center" }}>
+            <div key={stage} style={{ background:T.bg2, border:`1px solid ${c}44`, borderRadius:12, padding:"18px 22px", textAlign:"center" }}>
               <Badge status={stage} />
-              <div style={{ color:"#e2e8f0", fontSize:32, fontWeight:800, margin:"10px 0 4px" }}>{cnt}</div>
+              <div style={{ color:T.text, fontSize:32, fontWeight:800, margin:"10px 0 4px" }}>{cnt}</div>
               <div style={{ color:c, fontSize:14, fontWeight:600 }}>{amt.toLocaleString()}</div>
-              <div style={{ color:"#4a5568", fontSize:11, marginTop:4 }}>total amount</div>
+              <div style={{ color:T.text4, fontSize:11, marginTop:4 }}>total amount</div>
             </div>
           );
         })}
@@ -1989,6 +2090,7 @@ const WEEKDAYS_ZH = ["日","一","二","三","四","五","六"];
 const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdateTeam, onDeleteTeam, onAddPersonal, onUpdatePersonal, onDeletePersonal, onSaveMemo }) {
+  const T = getT();
   const isSuper = user?.role === "admin";
   const today = new Date();
   const todayStr = today.toISOString().slice(0,10);
@@ -2057,10 +2159,28 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
     setDayModal(true);
   }
 
+  const [tripMode, setTripMode] = useState(false);
+  const [tripEnd, setTripEnd] = useState("");
+  const [tripText, setTripText] = useState("");
+
   async function addTeamAnnouncement() {
     if (!teamText.trim()) return;
     await onAddTeam({ date:selectedDay, text:teamText.trim(), author:user.name, _owner:user.name });
     setTeamText("");
+  }
+  async function addBusinessTrip() {
+    if (!tripText.trim() || !tripEnd) return;
+    // Create an entry for each day in the range
+    const start = new Date(selectedDay+"T00:00:00");
+    const end = new Date(tripEnd+"T00:00:00");
+    if (end < start) return alert("结束日期必须晚于开始日期");
+    const promises = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+      const ds = d.toISOString().slice(0,10);
+      promises.push(onAddTeam({ date:ds, text:"✈️ "+tripText.trim(), author:user.name, _owner:user.name }));
+    }
+    await Promise.all(promises);
+    setTripText(""); setTripEnd(""); setTripMode(false);
   }
   async function deleteTeamItem(id) { await onDeleteTeam(id); }
 
@@ -2085,21 +2205,21 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
     <div style={{ flex:"0 0 auto", width:"calc(100% - 300px)", minWidth:0 }}>
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
-        <button onClick={prevMonth} style={{ background:"#1a1f2e", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>‹</button>
+        <button onClick={prevMonth} style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>‹</button>
         <div style={{ textAlign:"center" }}>
-          <div style={{ color:"#e2e8f0", fontWeight:800, fontSize:22 }}>{MONTHS_EN[viewMonth]} {viewYear}</div>
+          <div style={{ color:T.text, fontWeight:800, fontSize:22 }}>{MONTHS_EN[viewMonth]} {viewYear}</div>
           <div style={{ color:"#4a5568", fontSize:12, marginTop:2 }}>
-            <span style={{ color:"#f59e0b", marginRight:12 }}>📢 Team announcements</span>
+            <span style={{ color:"#d97706", marginRight:12 }}>📢 Team announcements</span>
             <span style={{ color:"#a78bfa" }}>• Personal todos</span>
           </div>
         </div>
-        <button onClick={nextMonth} style={{ background:"#1a1f2e", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>›</button>
+        <button onClick={nextMonth} style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:18 }}>›</button>
       </div>
 
       {/* Weekday headers */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:3 }}>
         {WEEKDAYS.map((w,i) => (
-          <div key={w} style={{ textAlign:"center", color: i===0||i===6 ? "#ef4444" : "#718096", fontSize:12, fontWeight:600, padding:"6px 0" }}>
+          <div key={w} style={{ textAlign:"center", color: i===0||i===6 ? "#ef4444" : T.text3, fontSize:12, fontWeight:600, padding:"6px 0" }}>
             {w}<span style={{ color:"#4a5568", marginLeft:3, fontSize:10 }}>({WEEKDAYS_ZH[i]})</span>
           </div>
         ))}
@@ -2116,16 +2236,17 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
           const team = teamForDay(ds);
           const personal = personalForDay(ds);
           const hasItems = team.length > 0 || personal.length > 0;
+          const hasTrip = team.some(t=>t.text&&t.text.startsWith("✈️"));
           return (
             <div key={ds} onClick={()=>openDay(d)}
               style={{
-                background: isToday ? "#1a1830" : "#1a1f2e",
-                border: isToday ? "2px solid #a78bfa" : "1px solid #2d3748",
+                background: isToday ? (T.key==="dark"?"#1a1830":T.bg3) : hasTrip ? (T.key==="dark"?"#1a2233":"#e8f0fe") : T.bg2,
+                border: isToday ? "2px solid #a78bfa" : hasTrip ? "1px solid #3b82f644" : `1px solid ${T.border}`,
                 borderRadius:10, padding:"8px 8px 6px", minHeight:90,
                 cursor:"pointer", transition:"all 0.15s", position:"relative"
               }}
               onMouseEnter={e=>{ e.currentTarget.style.borderColor="#667eea66"; e.currentTarget.style.background=isToday?"#1e1a38":"#1e2433"; }}
-              onMouseLeave={e=>{ e.currentTarget.style.borderColor=isToday?"#a78bfa":"#2d3748"; e.currentTarget.style.background=isToday?"#1a1830":"#1a1f2e"; }}>
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor=isToday?"#a78bfa":T.border; e.currentTarget.style.background=isToday?(T.key==="dark"?"#1a1830":T.bg3):T.bg2; }}>
               {/* Date number */}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
                 <span style={{
@@ -2160,11 +2281,11 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
       {/* Day Modal */}
       {dayModal && selectedDay && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:16, width:"100%", maxWidth:520, maxHeight:"85vh", overflowY:"auto" }}>
+          <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:16, width:"100%", maxWidth:520, maxHeight:"85vh", overflowY:"auto" }}>
             {/* Modal header */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"18px 22px 12px", borderBottom:"1px solid #2d3748" }}>
               <div>
-                <div style={{ color:"#e2e8f0", fontWeight:800, fontSize:17 }}>
+                <div style={{ color:T.text, fontWeight:800, fontSize:17 }}>
                   {(() => { const d=new Date(selectedDay+"T00:00:00"); return `${d.getDate()} ${MONTHS_EN[d.getMonth()]} ${d.getFullYear()}`; })()}
                 </div>
                 <div style={{ color:"#718096", fontSize:12, marginTop:2 }}>
@@ -2185,29 +2306,52 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
                 </div>
                 {/* Existing team items */}
                 {selTeam.length===0
-                  ? <div style={{ color:"#4a5568", fontSize:13, padding:"8px 0" }}>No announcements for this day.</div>
+                  ? <div style={{ color:T.text4, fontSize:13, padding:"8px 0" }}>No announcements for this day.</div>
                   : selTeam.map(t=>(
                     <div key={t._id} style={{ display:"flex", alignItems:"flex-start", gap:8, background:"#f59e0b0d", border:"1px solid #f59e0b22", borderRadius:8, padding:"8px 12px", marginBottom:6 }}>
                       <span style={{ color:"#f59e0b", fontSize:13, flex:1 }}>{t.text}</span>
-                      <span style={{ color:"#4a5568", fontSize:11, whiteSpace:"nowrap" }}>— {t.author}</span>
+                      <span style={{ color:T.text4, fontSize:11, whiteSpace:"nowrap" }}>— {t.author}</span>
                       {isSuper && <button onClick={()=>deleteTeamItem(t._id)} style={{ background:"none", border:"none", color:"#ef444466", cursor:"pointer", fontSize:14, padding:0, flexShrink:0 }}>✕</button>}
                     </div>
                   ))
                 }
                 {/* Add team announcement — admin only */}
                 {isSuper && (
-                  <div style={{ display:"flex", gap:8, marginTop:8 }}>
-                    <input value={teamText} onChange={e=>setTeamText(e.target.value)}
-                      placeholder="Add team announcement... 添加公告"
-                      style={{ ...IS, flex:1, fontSize:13 }}
-                      onKeyDown={e=>{ if(e.key==="Enter") addTeamAnnouncement(); }} />
-                    <Btn onClick={addTeamAnnouncement} style={{ background:"#f59e0b22", color:"#f59e0b", padding:"8px 14px", border:"1px solid #f59e0b44", flexShrink:0 }}>+ Add</Btn>
+                  <div style={{ marginTop:8 }}>
+                    {!tripMode ? (
+                      <div style={{ display:"flex", gap:8 }}>
+                        <input value={teamText} onChange={e=>setTeamText(e.target.value)}
+                          placeholder="Add team announcement... 添加公告"
+                          style={{ ...IS, flex:1, fontSize:13 }}
+                          onKeyDown={e=>{ if(e.key==="Enter") addTeamAnnouncement(); }} />
+                        <Btn onClick={addTeamAnnouncement} style={{ background:"#f59e0b22", color:"#f59e0b", padding:"8px 14px", border:"1px solid #f59e0b44", flexShrink:0 }}>+ Add</Btn>
+                        <Btn onClick={()=>setTripMode(true)} style={{ background:"#3b82f622", color:"#3b82f6", padding:"8px 14px", border:"1px solid #3b82f644", flexShrink:0 }}>✈️ 出差</Btn>
+                      </div>
+                    ) : (
+                      <div style={{ background:T.bg3, border:"1px solid #3b82f644", borderRadius:10, padding:"12px 14px" }}>
+                        <div style={{ color:"#3b82f6", fontWeight:700, fontSize:13, marginBottom:8 }}>✈️ 出差行程 Business Trip</div>
+                        <div style={{ color:T.text3, fontSize:11, marginBottom:8 }}>
+                          开始日期: <b style={{ color:T.text }}>{selectedDay}</b> → 结束日期:
+                          <input type="date" value={tripEnd} onChange={e=>setTripEnd(e.target.value)}
+                            style={{ background:T.inputBg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:"2px 8px", fontSize:12, marginLeft:6 }} />
+                        </div>
+                        <div style={{ display:"flex", gap:8 }}>
+                          <input value={tripText} onChange={e=>setTripText(e.target.value)}
+                            placeholder="出差说明 (e.g. 北京客户拜访)"
+                            style={{ ...IS, flex:1, fontSize:13 }}
+                            onKeyDown={e=>{ if(e.key==="Enter") addBusinessTrip(); }} />
+                          <Btn onClick={addBusinessTrip} style={{ background:"#3b82f622", color:"#3b82f6", padding:"8px 14px", border:"1px solid #3b82f644", flexShrink:0 }}>✓ 确认</Btn>
+                          <Btn onClick={()=>setTripMode(false)} style={{ background:T.bg4, color:T.text2, padding:"8px 14px", flexShrink:0 }}>✕</Btn>
+                        </div>
+                        <div style={{ color:T.text4, fontSize:11, marginTop:6 }}>📌 将在选择范围内每天自动添加 ✈️ 出差标记</div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Divider */}
-              <div style={{ height:1, background:"#2d3748", margin:"0 0 18px" }} />
+              <div style={{ height:1, background:T.border, margin:"0 0 18px" }} />
 
               {/* ── PERSONAL TODOS ── */}
               <div>
@@ -2217,14 +2361,14 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
                 </div>
                 {/* Existing personal todos */}
                 {selPersonal.length===0
-                  ? <div style={{ color:"#4a5568", fontSize:13, padding:"8px 0" }}>No todos yet. Add one below!</div>
+                  ? <div style={{ color:T.text4, fontSize:13, padding:"8px 0" }}>No todos yet. Add one below!</div>
                   : selPersonal.map(t=>{
                     const pc = PRIORITY_CONFIG[t.priority||"normal"];
                     return (
-                      <div key={t._id} style={{ display:"flex", alignItems:"center", gap:8, background:t.done?"#1a1f2e":pc.bg, border:`1px solid ${t.done?"#2d3748":pc.color+"33"}`, borderRadius:8, padding:"8px 12px", marginBottom:6, transition:"all 0.2s" }}>
+                      <div key={t._id} style={{ display:"flex", alignItems:"center", gap:8, background:t.done?T.bg3:pc.bg, border:`1px solid ${t.done?T.border:pc.color+"33"}`, borderRadius:8, padding:"8px 12px", marginBottom:6, transition:"all 0.2s" }}>
                         <input type="checkbox" checked={t.done} onChange={()=>toggleTodo(t)}
                           style={{ width:15, height:15, cursor:"pointer", accentColor:pc.color, flexShrink:0 }} />
-                        <span style={{ fontSize:13, flex:1, color:t.done?"#4a5568":"#e2e8f0", textDecoration:t.done?"line-through":"none", transition:"all 0.2s" }}>{t.text}</span>
+                        <span style={{ fontSize:13, flex:1, color:t.done?T.text4:T.text, textDecoration:t.done?"line-through":"none", transition:"all 0.2s" }}>{t.text}</span>
                         <span style={{ fontSize:11, color:pc.color, fontWeight:600, whiteSpace:"nowrap" }}>{pc.dot} {pc.label}</span>
                         <button onClick={()=>deleteTodo(t._id)} style={{ background:"none", border:"none", color:"#ef444466", cursor:"pointer", fontSize:14, padding:0, flexShrink:0 }}>✕</button>
                       </div>
@@ -2236,7 +2380,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
                   <div style={{ display:"flex", gap:6, marginBottom:8 }}>
                     {Object.entries(PRIORITY_CONFIG).map(([key,cfg])=>(
                       <Btn key={key} onClick={()=>setTodoPriority(key)}
-                        style={{ flex:1, background:todoPriority===key?cfg.bg:"#0f1420", color:todoPriority===key?cfg.color:"#4a5568", border:`1px solid ${todoPriority===key?cfg.color+"55":"#2d3748"}`, padding:"6px 0", fontSize:12, transition:"all 0.15s" }}>
+                        style={{ flex:1, background:todoPriority===key?cfg.bg:T.bg3, color:todoPriority===key?cfg.color:T.text4, border:`1px solid ${todoPriority===key?cfg.color+"55":T.border}`, padding:"6px 0", fontSize:12, transition:"all 0.15s" }}>
                         {cfg.dot} {cfg.label}
                       </Btn>
                     ))}
@@ -2258,11 +2402,11 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
 
     {/* ── RIGHT: MEMO SIDEBAR ── */}
     <div style={{ width:284, flexShrink:0, position:"sticky", top:80, alignSelf:"flex-start" }}>
-      <div style={{ background:"#1a1f2e", border:"1px solid #2d3748", borderRadius:14, overflow:"hidden" }}>
-        <div style={{ padding:"14px 16px 10px", borderBottom:"1px solid #2d3748" }}>
+      <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:14, overflow:"hidden" }}>
+        <div style={{ padding:"14px 16px 10px", borderBottom:`1px solid ${T.border}` }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: isSuper ? 10 : 0 }}>
             <span style={{ fontSize:16 }}>📝</span>
-            <span style={{ color:"#e2e8f0", fontWeight:700, fontSize:14 }}>备忘录 Memo</span>
+            <span style={{ color:T.text, fontWeight:700, fontSize:14 }}>备忘录 Memo</span>
             {memoSaving && <span style={{ color:"#4a5568", fontSize:11, marginLeft:"auto" }}>saving...</span>}
             {!memoSaving && <span style={{ color:"#10b98166", fontSize:11, marginLeft:"auto" }}>✓ saved</span>}
           </div>
@@ -2270,7 +2414,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
             <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
               {SALES_MEMBERS.map(name=>(
                 <button key={name} onClick={()=>setMemoViewPerson(name)}
-                  style={{ background:memoViewPerson===name?"#667eea":"#0f1420", color:memoViewPerson===name?"#fff":"#718096", border:`1px solid ${memoViewPerson===name?"#667eea":"#2d3748"}`, borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer", fontWeight:memoViewPerson===name?700:400 }}>
+                  style={{ background:memoViewPerson===name?"#667eea":T.bg3, color:memoViewPerson===name?"#fff":T.text3, border:`1px solid ${memoViewPerson===name?"#667eea":T.border}`, borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer", fontWeight:memoViewPerson===name?700:400 }}>
                   {name}
                 </button>
               ))}
@@ -2290,7 +2434,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
             readOnly={!canEditMemo}
             placeholder={canEditMemo ? "自由填写备忘录...\nFree notes, reminders, ideas..." : ""}
             style={{
-              width:"100%", minHeight:420, background: canEditMemo ? "#0f1420" : "#0a0d14",
+              width:"100%", minHeight:420, background: canEditMemo ? T.bg3 : T.bg,
               border:`1px solid ${canEditMemo?"#2d3748":"#1a1f2e"}`,
               color: canEditMemo ? "#e2e8f0" : "#718096",
               borderRadius:8, padding:"10px 12px", fontSize:13,
@@ -2311,6 +2455,7 @@ function CalendarTodo({ calTeam, calPersonal, calMemos, user, onAddTeam, onUpdat
 
 // ─── TEAM LEADERBOARD 业绩目标排行 ────────────────────────────────────────────
 function TeamLeaderboard({ pipeline, goals, user }) {
+  const T = getT();
   const now = new Date();
   const thisYear = now.getFullYear().toString(); // "2026"
 
@@ -2333,8 +2478,8 @@ function TeamLeaderboard({ pipeline, goals, user }) {
     <div style={{ maxWidth:700, margin:"0 auto" }}>
       <div style={{ textAlign:"center", marginBottom:28 }}>
         <div style={{ fontSize:36, marginBottom:6 }}>🏆</div>
-        <h2 style={{ color:"#e2e8f0", margin:"0 0 4px", fontSize:22, fontWeight:800 }}>Team Profit Goals 业绩目标排行</h2>
-        <div style={{ color:"#4a5568", fontSize:13 }}>{yearLabel} · Updated live 实时更新</div>
+        <h2 style={{ color:T.text, margin:"0 0 4px", fontSize:22, fontWeight:800 }}>Team Profit Goals 业绩目标排行</h2>
+        <div style={{ color:T.text4, fontSize:13 }}>{yearLabel} · Updated live 实时更新</div>
       </div>
 
       <div style={{ display:"grid", gap:14 }}>
@@ -2350,7 +2495,7 @@ function TeamLeaderboard({ pipeline, goals, user }) {
 
           return (
             <div key={p.name} style={{
-              background: p.isMe ? "#1a1830" : "#1a1f2e",
+              background: p.isMe ? (T.key==="dark"?"#1a1830":T.bg3) : T.bg2,
               border: `2px solid ${borderColor}`,
               borderRadius:14, padding:"18px 22px",
               boxShadow: p.isMe ? "0 0 20px #a78bfa22" : "none",
@@ -2364,11 +2509,11 @@ function TeamLeaderboard({ pipeline, goals, user }) {
                   </span>
                   <div>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ color: p.isMe?"#a78bfa":"#e2e8f0", fontWeight:700, fontSize:16 }}>{p.name}</span>
+                      <span style={{ color: p.isMe?"#a78bfa":T.text, fontWeight:700, fontSize:16 }}>{p.name}</span>
                       {p.isMe && <span style={{ background:"#a78bfa22", color:"#a78bfa", fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600 }}>YOU 你</span>}
                       {hitGoal && <span style={{ background:"#10b98122", color:"#10b981", fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600 }}>✅ Goal Hit!</span>}
                     </div>
-                    <div style={{ color:"#4a5568", fontSize:11, marginTop:2 }}>
+                    <div style={{ color:T.text4, fontSize:11, marginTop:2 }}>
                       This year 今年: <span style={{ color:"#10b981", fontWeight:600 }}>${p.yearProfit.toLocaleString()}</span> profit
                     </div>
                   </div>
@@ -2377,14 +2522,14 @@ function TeamLeaderboard({ pipeline, goals, user }) {
                 <div style={{ textAlign:"right" }}>
                   {p.target > 0
                     ? <><div style={{ color:hitGoal?"#10b981":"#f59e0b", fontWeight:800, fontSize:18 }}>{p.pct!==null?Math.round(p.pct):0}%</div>
-                       <div style={{ color:"#4a5568", fontSize:11 }}>of ${p.target.toLocaleString()} target</div></>
-                    : <div style={{ color:"#4a5568", fontSize:12 }}>No target set</div>
+                       <div style={{ color:T.text4, fontSize:11 }}>of ${p.target.toLocaleString()} target</div></>
+                    : <div style={{ color:T.text4, fontSize:12 }}>No target set</div>
                   }
                 </div>
               </div>
 
               {/* Progress bar */}
-              <div style={{ background:"#0f1420", borderRadius:8, height:10, overflow:"hidden" }}>
+              <div style={{ background:T.bg3, borderRadius:8, height:10, overflow:"hidden" }}>
                 <div style={{
                   height:"100%",
                   width: barPct + "%",
@@ -2403,7 +2548,7 @@ function TeamLeaderboard({ pipeline, goals, user }) {
 
               {/* Motivational message for current user */}
               {p.isMe && p.target > 0 && !hitGoal && (
-                <div style={{ marginTop:8, color:"#718096", fontSize:12, textAlign:"right" }}>
+                <div style={{ marginTop:8, color:T.text3, fontSize:12, textAlign:"right" }}>
                   💪 ${(p.target - p.yearProfit).toLocaleString()} more to go this year! 加油！
                 </div>
               )}
@@ -2412,7 +2557,7 @@ function TeamLeaderboard({ pipeline, goals, user }) {
         })}
       </div>
 
-      <div style={{ textAlign:"center", marginTop:20, color:"#2d3748", fontSize:12 }}>
+      <div style={{ textAlign:"center", marginTop:20, color:T.text4, fontSize:12 }}>
         Targets are set by Admin · 目标由管理员设定
       </div>
     </div>
@@ -2421,6 +2566,7 @@ function TeamLeaderboard({ pipeline, goals, user }) {
 
 // ─── AI ASSISTANT 🤖 ──────────────────────────────────────────────────────────
 function AIAssistant({ user, pipeline, tracking, clients, isSuper }) {
+  const T = getT();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]); // {role, content}
   const [input, setInput] = useState("");
@@ -2586,7 +2732,7 @@ Keep it short and actionable!`;
 
       {/* Chat window */}
       {open && (
-        <div style={{ position:"fixed", bottom:24, right:24, width:400, height:580, background:"#1a1f2e", border:"1px solid #667eea44", borderRadius:18, boxShadow:"0 8px 40px rgba(0,0,0,0.6)", zIndex:500, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+        <div style={{ position:"fixed", bottom:24, right:24, width:400, height:580, background:T.bg2, border:"1px solid #667eea44", borderRadius:18, boxShadow:"0 8px 40px rgba(0,0,0,0.6)", zIndex:500, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
           {/* Header */}
           <div style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
@@ -2611,7 +2757,7 @@ Keep it short and actionable!`;
               <div key={i} style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
                 <div style={{
                   maxWidth:"85%", padding:"10px 14px", borderRadius: m.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px",
-                  background: m.role==="user" ? "linear-gradient(135deg,#667eea,#764ba2)" : "#0f1420",
+                  background: m.role==="user" ? "linear-gradient(135deg,#667eea,#764ba2)" : T.bg3,
                   border: m.role==="user" ? "none" : "1px solid #2d3748",
                   color:"#e2e8f0", fontSize:13, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word"
                 }}>
@@ -2621,7 +2767,7 @@ Keep it short and actionable!`;
             ))}
             {loading && (
               <div style={{ display:"flex", justifyContent:"flex-start" }}>
-                <div style={{ background:"#0f1420", border:"1px solid #2d3748", borderRadius:"14px 14px 14px 4px", padding:"10px 16px" }}>
+                <div style={{ background:T.bg3, border:`1px solid ${T.border}`, borderRadius:"14px 14px 14px 4px", padding:"10px 16px" }}>
                   <span style={{ color:"#667eea", fontSize:18, animation:"none" }}>●●●</span>
                 </div>
               </div>
@@ -2633,7 +2779,7 @@ Keep it short and actionable!`;
           <div style={{ padding:"8px 12px 4px", borderTop:"1px solid #2d3748", display:"flex", gap:6, overflowX:"auto", flexShrink:0 }}>
             {quickActions.map(qa=>(
               <button key={qa.label} onClick={()=>{ setInput(qa.prompt); }}
-                style={{ background:"#0f1420", border:"1px solid #2d3748", color:"#a0aec0", borderRadius:20, padding:"4px 10px", fontSize:11, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}
+                style={{ background:T.bg3, border:`1px solid ${T.border}`, color:T.text2, borderRadius:20, padding:"4px 10px", fontSize:11, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}
                 onMouseEnter={e=>{ e.currentTarget.style.borderColor="#667eea"; e.currentTarget.style.color="#a78bfa"; }}
                 onMouseLeave={e=>{ e.currentTarget.style.borderColor="#2d3748"; e.currentTarget.style.color="#a0aec0"; }}>
                 {qa.label}
@@ -2647,7 +2793,7 @@ Keep it short and actionable!`;
               placeholder="问我任何问题... Ask me anything"
               rows={2}
               onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }}
-              style={{ flex:1, background:"#0f1420", border:"1px solid #2d3748", color:"#e2e8f0", borderRadius:10, padding:"8px 12px", fontSize:13, resize:"none", fontFamily:"inherit", outline:"none", lineHeight:1.5 }} />
+              style={{ flex:1, background:T.bg3, border:`1px solid ${T.border}`, color:T.text, borderRadius:10, padding:"8px 12px", fontSize:13, resize:"none", fontFamily:"inherit", outline:"none", lineHeight:1.5 }} />
             <button onClick={sendMessage} disabled={loading||!input.trim()}
               style={{ background: loading||!input.trim() ? "#2d3748":"linear-gradient(135deg,#667eea,#764ba2)", border:"none", color:"#fff", borderRadius:10, padding:"0 14px", cursor: loading||!input.trim()?"not-allowed":"pointer", fontSize:18, flexShrink:0, opacity: loading||!input.trim()?0.5:1 }}>
               ➤
@@ -2676,6 +2822,9 @@ export default function App() {
     saveTheme(key);
     setShowThemePicker(false);
   }
+
+  // Keep global theme in sync
+  _G.T = T;
 
   function jumpToPipeline(itemId) {
     // find pipeline tab index
@@ -2729,7 +2878,7 @@ export default function App() {
   }
 
   if (!loaded && user) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0f1420" }}>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:_G.T.bg }}>
       <div style={{ color:"#718096", textAlign:"center" }}>
         <div style={{ fontSize:40, marginBottom:12 }}>⏳</div>
         <div>Loading data...</div>
@@ -2739,11 +2888,12 @@ export default function App() {
   if (!user) return <LoginScreen onLogin={u=>{setUser(u);setTab(0);}} />;
 
   return (
-    <div style={{ minHeight:"100vh", background:"#0f1420", fontFamily:"'Noto Sans SC',system-ui,sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"'Noto Sans SC',system-ui,sans-serif" }}>
+      <ThemeStyle T={T} />
       {showPwd && <ChangePasswordModal user={user} onClose={()=>setShowPwd(false)} />}
 
       {/* NAV */}
-      <div style={{ background:"#0d1117", borderBottom:"1px solid #1e2433", position:"sticky", top:0, zIndex:100 }}>
+      <div style={{ background:T.navBg, borderBottom:`1px solid ${T.navBorder}`, position:"sticky", top:0, zIndex:100 }}>
         <div style={{ padding:"0 24px" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", height:58 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -2756,7 +2906,14 @@ export default function App() {
                 <span style={{ color:T.text, fontSize:14, fontWeight:600 }}>{user.name}</span>
                 <span style={{ background:isSuper?T.accentBg:T.bg4, color:isSuper?T.accent:T.text3, fontSize:11, padding:"2px 8px", borderRadius:8, fontWeight:600 }}>{isSuper?"Admin":"Sales"}</span>
               </div>
-              <Btn onClick={()=>setShowPwd(true)} style={{ background:"#1a2a1a", color:"#68d391", padding:"8px 12px", fontSize:12 }}>🔐 Password</Btn>
+              {isSuper && (
+                <Btn onClick={()=>exportFullBackup(pipeline,tracking,clients,reports,followups,calTeam,calPersonal,calMemos)}
+                  style={{ background:T.bg2, border:`1px solid ${T.border}`, color:"#10b981", padding:"8px 12px", fontSize:12 }}
+                  title="Download full data backup 下载完整数据备份">
+                  💾 Backup
+                </Btn>
+              )}
+              <Btn onClick={()=>setShowPwd(true)} style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.accent, padding:"8px 12px", fontSize:12 }}>🔐 Password</Btn>
               {/* Theme picker */}
               <div style={{ position:"relative" }}>
                 <button onClick={()=>setShowThemePicker(p=>!p)} title="切换主题 Theme" style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, padding:"8px 12px", borderRadius:8, cursor:"pointer", fontSize:14 }}>🎨</button>
@@ -2785,7 +2942,7 @@ export default function App() {
       </div>
 
       {/* CONTENT */}
-      <div style={{ padding:"20px 24px" }}>
+      <div style={{ padding:"20px 24px", background:T.bg, minHeight:"calc(100vh - 120px)" }}>
         {/* Global follow-up reminder — shows on all tabs */}
         {curTab !== "pipeline" && <FollowUpBanner pipeline={pipeline} user={user} onJump={jumpToPipeline} T={T} />}
         {curTab==="dashboard" && isSuper && <SalesDashboard pipeline={pipeline} tracking={tracking} clients={clients} reports={reports} goals={goals} onGoalSave={(id,d)=>id?fireUpdate("goals",id,d):fireAdd("goals",d)} />}
