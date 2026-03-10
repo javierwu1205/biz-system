@@ -277,7 +277,7 @@ function exportCSV(data, filename, cols) {
 }
 
 function exportFullBackup(pipeline, tracking, clients, reports, followups, calTeam, calPersonal, calMemos) {
-  const date = new Date().toISOString().slice(0,10);
+  const date = (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})();
   const sections = [
     { name:"Pipeline 报价", data:pipeline, cols:["Date","Client","Region","Country","Currency","Amount","Cost","Stage","Prob","Sales","Status","Followup","Notes"] },
     { name:"Tracking 客户开发", data:tracking, cols:["Date","Client","Region","Country","Source","Industry","Status","Sales","Notes"] },
@@ -505,7 +505,7 @@ function Tracking({ T, data, user, onAdd, onUpdate, onDelete }) {
   const [filters, setFilters] = useState({});
   const [form, setForm] = useState({});
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
-  const empty = { Date:new Date().toISOString().slice(0,10), Client:"", Region:"North America", Country:"United States", Source:"Email", Industry:"Water Treatment", IndustryOther:"", Status:"Contacted", Notes:"", Sales:user.name, _owner:user.name };
+  const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Source:"Email", Industry:"Water Treatment", IndustryOther:"", Status:"Contacted", Notes:"", Sales:user.name, _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
   const filtered = applyFilters(visible, filters);
   const exportCols = ["Date","Client","Region","Country","Source","Industry","Status","Sales","Notes"];
@@ -577,7 +577,7 @@ const NEXT_ACTION_OPTIONS = [
 // ─── FOLLOW-UP REMINDER BANNER ────────────────────────────────────────────────
 function FollowUpBanner({ pipeline, user, onJump, T }) {
   const isSuper = user.role === "admin";
-  const today = new Date().toISOString().slice(0,10);
+  const today = (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})();
   const mine = isSuper ? pipeline : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
   const due = mine.filter(d => d.FollowUpDate && d.FollowUpDate <= today && d.Stage !== "Order" && d.NextAction !== "Closed – Lost" && d.NextAction !== "Completed");
   if (due.length === 0) return null;
@@ -631,7 +631,7 @@ function Pipeline({ T, data, user, onAdd, onUpdate, onDelete, allClients, highli
   const [inlineEditId, setInlineEditId] = useState(null); // id of row being inline-edited
   const [inlineDate, setInlineDate] = useState("");
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
-  const empty = { Date:new Date().toISOString().slice(0,10), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", Sales:user.name, _owner:user.name };
+  const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", Sales:user.name, _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
   const filtered = applyFilters(visible, filters);
   const exportCols = ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","Sales","NextAction","FollowUpDate","Notes"];
@@ -649,7 +649,7 @@ function Pipeline({ T, data, user, onAdd, onUpdate, onDelete, allClients, highli
   }
 
   // Today for overdue highlight
-  const today = new Date().toISOString().slice(0,10);
+  const today = (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})();
   const naColor = (na) => ({
     "Completed":"#10b981","Ready to Ship":"#3b82f6","In Production":"#a78bfa",
     "Waiting for Payment":"#f59e0b","Negotiation":"#60a5fa","Closed – Lost":"#ef4444",
@@ -1187,9 +1187,9 @@ function ClientMgmt({ T, data, user, onAdd, onUpdate, onDelete, followups, onAdd
   const [form, setForm] = useState({});
   const [dupWarning, setDupWarning] = useState(null);
   const [historyClient, setHistoryClient] = useState(null); // client name for history panel
-  const [histForm, setHistForm] = useState({ date: new Date().toISOString().slice(0,10), note:"" });
+  const [histForm, setHistForm] = useState({ date: (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), note:"" });
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
-  const empty={ Client:"", Contact:"", Email:"", Phone:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user.name, LastContact:new Date().toISOString().slice(0,10), Notes:"", _owner:user.name };
+  const empty={ Client:"", Contact:"", Email:"", Phone:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user.name, LastContact:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Notes:"", _owner:user.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
   const filtered = applyFilters(visible, filters, "LastContact");
   const exportCols = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Notes"];
@@ -1287,9 +1287,9 @@ function ClientMgmt({ T, data, user, onAdd, onUpdate, onDelete, followups, onAdd
                 <input value={histForm.note} onChange={e=>setHistForm(p=>({...p,note:e.target.value}))}
                   placeholder="e.g. Sent quotation, client interested..."
                   style={{ ...IS, width:"100%" }}
-                  onKeyDown={e=>{if(e.key==="Enter"&&histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user.name,_owner:user.name});setHistForm({date:new Date().toISOString().slice(0,10),note:""});}}} />
+                  onKeyDown={e=>{if(e.key==="Enter"&&histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user.name,_owner:user.name});setHistForm({date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(),note:""});}}} />
               </div>
-              <Btn onClick={()=>{if(histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user.name,_owner:user.name});setHistForm({date:new Date().toISOString().slice(0,10),note:""});}}}
+              <Btn onClick={()=>{if(histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user.name,_owner:user.name});setHistForm({date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(),note:""});}}}
                 style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"8px 16px", whiteSpace:"nowrap" }}>+ Add</Btn>
             </div>
             {/* History list */}
@@ -1386,7 +1386,7 @@ function Reports({ T, data, user, onAdd, onUpdate, onDelete }) {
   const [filters, setFilters] = useState({});
   const [form, setForm] = useState({});
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
-  const empty={ Sales:user.name, Date:new Date().toISOString().slice(0,10), Type:"Weekly", Done:"", Plan:"", Issues:"", _owner:user.name };
+  const empty={ Sales:user.name, Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Type:"Weekly", Done:"", Plan:"", Issues:"", _owner:user.name };
 
   // Filter
   const filtered = data.filter(d => {
@@ -1405,7 +1405,7 @@ function Reports({ T, data, user, onAdd, onUpdate, onDelete }) {
     const day = d.getDay(); // 0=Sun
     const sunday = new Date(d);
     sunday.setDate(d.getDate() - day);
-    return sunday.toISOString().slice(0,10);
+    return sunday.getFullYear()+"-"+String(sunday.getMonth()+1).padStart(2,"0")+"-"+String(sunday.getDate()).padStart(2,"0");
   }
   function weekLabel(weekStart) {
     const d = new Date(weekStart);
@@ -1547,8 +1547,8 @@ function WeeklyActivity({ T, pipeline, tracking, reports }) {
   const [filters, setFilters] = useState({});
   const [weekFilter, setWeekFilter] = useState("all");
   const now = new Date();
-  const weekAgo = new Date(now-7*864e5).toISOString().slice(0,10);
-  const monthAgo = new Date(now-30*864e5).toISOString().slice(0,10);
+  const _wa=new Date(now-7*864e5); const weekAgo=_wa.getFullYear()+"-"+String(_wa.getMonth()+1).padStart(2,"0")+"-"+String(_wa.getDate()).padStart(2,"0");
+  const _ma=new Date(now-30*864e5); const monthAgo=_ma.getFullYear()+"-"+String(_ma.getMonth()+1).padStart(2,"0")+"-"+String(_ma.getDate()).padStart(2,"0");
   const dateLimit = weekFilter==="week"?weekAgo : weekFilter==="month"?monthAgo : "";
   const inRange = (d,field="Date") => !dateLimit || (d[field]&&d[field]>=dateLimit);
   const stats = SALES_MEMBERS.map(name => {
@@ -2093,7 +2093,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
   const T = getT();
   const isSuper = user?.role === "admin";
   const today = new Date();
-  const todayStr = today.toISOString().slice(0,10);
+  const todayStr = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
@@ -2574,7 +2574,7 @@ function AIAssistant({ user, pipeline, tracking, clients, isSuper }) {
   const [autoAnalyzed, setAutoAnalyzed] = useState(false);
   const messagesEndRef = useCallback(node => { if (node) node.scrollIntoView({ behavior:"smooth" }); }, []);
 
-  const today = new Date().toISOString().slice(0,10);
+  const today = (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})();
 
   // Build context snapshot of user's data (or all data for admin)
   function buildContext() {
