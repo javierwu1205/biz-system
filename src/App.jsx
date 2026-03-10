@@ -497,8 +497,8 @@ function LoginScreen({ onLogin }) {
 }
 
 // ─── TRACKING 客户开发跟踪 ────────────────────────────────────────────────────
-function Tracking({ T, data, user, onAdd, onUpdate, onDelete }) {
-  const isSuper = user.role === "admin";
+function Tracking({ T, data=[], user, onAdd, onUpdate, onDelete }) {
+  const isSuper = user?.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [filters, setFilters] = useState({});
@@ -575,7 +575,7 @@ const NEXT_ACTION_OPTIONS = [
 
 // ─── FOLLOW-UP REMINDER BANNER ────────────────────────────────────────────────
 function FollowUpBanner({ pipeline, user, onJump, T }) {
-  const isSuper = user.role === "admin";
+  const isSuper = user?.role === "admin";
   const today = (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})();
   const mine = isSuper ? pipeline : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
   const due = mine.filter(d => d.FollowUpDate && d.FollowUpDate <= today && d.Stage !== "Order" && d.NextAction !== "Closed – Lost" && d.NextAction !== "Completed");
@@ -616,8 +616,8 @@ function FollowUpBanner({ pipeline, user, onJump, T }) {
 }
 
 // ─── PIPELINE 报价 & 销售机会池 ───────────────────────────────────────────────
-function Pipeline({ T, data, user, onAdd, onUpdate, onDelete, allClients, highlightId }) {
-  const isSuper = user.role === "admin";
+function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], highlightId }) {
+  const isSuper = user?.role === "admin";
   const [modal, setModal] = useState(false);
   const highlightRef = useCallback(node => { if (node && highlightId) node.scrollIntoView({ behavior:"smooth", block:"center" }); }, [highlightId]);
   const [editItem, setEditItem] = useState(null);
@@ -1177,8 +1177,8 @@ function ClientOwnerSearch({ allClients }) {
 }
 
 // ─── CLIENT MANAGEMENT 客户管理 ────────────────────────────────────────────────
-function ClientMgmt({ T, data, user, onAdd, onUpdate, onDelete, followups, onAddFollowup }) {
-  const isSuper = user.role === "admin";
+function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[], onAddFollowup }) {
+  const isSuper = user?.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [filters, setFilters] = useState({});
@@ -1376,8 +1376,8 @@ function ClientMgmt({ T, data, user, onAdd, onUpdate, onDelete, followups, onAdd
 
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
 // ─── REPORTS 工作汇报 ─────────────────────────────────────────────────────────
-function Reports({ T, data, user, onAdd, onUpdate, onDelete }) {
-  const isSuper = user.role === "admin";
+function Reports({ T, data=[], user, onAdd, onUpdate, onDelete }) {
+  const isSuper = user?.role === "admin";
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [filters, setFilters] = useState({});
@@ -1539,7 +1539,7 @@ function Reports({ T, data, user, onAdd, onUpdate, onDelete }) {
 }
 
 // ─── WEEKLY ACTIVITY 行为管理 (admin only) ────────────────────────────────────
-function WeeklyActivity({ T, pipeline, tracking, reports }) {
+function WeeklyActivity({ T, pipeline=[], tracking=[], reports=[] }) {
   const [filters, setFilters] = useState({});
   const [weekFilter, setWeekFilter] = useState("all");
   const now = new Date();
@@ -1595,7 +1595,7 @@ function WeeklyActivity({ T, pipeline, tracking, reports }) {
 }
 
 // ─── CLIENT HEALTH 客户健康度 (admin only) ────────────────────────────────────
-function ClientHealth({ T, pipeline, clients, user }) {
+function ClientHealth({ T, pipeline=[], clients=[], user }) {
   const isSuper = user?.role === "admin";
   const [riskFilter, setRiskFilter] = useState("all");
   const [salesFilter, setSalesFilter] = useState("");
@@ -1912,7 +1912,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
 }
 
 // ─── SALES DASHBOARD 总监主页 (admin only) ────────────────────────────────────
-function SalesDashboard({ T, pipeline, tracking, clients, reports, goals, onGoalSave }) {
+function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], goals=[], onGoalSave }) {
   const [filters, setFilters] = useState({});
   const [selectedSales, setSelectedSales] = useState(null);
   const [goalsModal, setGoalsModal] = useState(false);
@@ -2163,14 +2163,13 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
   }
   async function addBusinessTrip() {
     if (!tripText.trim() || !tripEnd) return;
-    // Create an entry for each day in the range
     const start = new Date(selectedDay+"T00:00:00");
     const end = new Date(tripEnd+"T00:00:00");
     if (end < start) return alert("结束日期必须晚于开始日期");
     const promises = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
       const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-      promises.push(onAddTeam({ date:ds, text:"✈️ "+tripText.trim(), author:user.name, _owner:user.name }));
+      promises.push(onAddPersonal({ date:ds, text:"✈️ "+tripText.trim(), priority:"high", done:false, owner:user.name, _owner:user.name }));
     }
     await Promise.all(promises);
     setTripText(""); setTripEnd(""); setTripMode(false);
@@ -2447,7 +2446,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
 }
 
 // ─── TEAM LEADERBOARD 业绩目标排行 ────────────────────────────────────────────
-function TeamLeaderboard({ T, pipeline, goals, user }) {
+function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
   const now = new Date();
   const thisYear = now.getFullYear().toString(); // "2026"
 
