@@ -504,18 +504,18 @@ function Tracking({ T, data=[], user, onAdd, onUpdate, onDelete }) {
   const [filters, setFilters] = useState({});
   const [form, setForm] = useState({});
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
-  const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Source:"Email", Industry:"Water Treatment", IndustryOther:"", Status:"Contacted", Notes:"", Sales:user.name, _owner:user.name };
-  const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
+  const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Source:"Email", Industry:"Water Treatment", IndustryOther:"", Status:"Contacted", Notes:"", Sales:user?.name, _owner:user?.name };
+  const visible = isSuper ? data : data.filter(d=>d._owner===user?.name||d.Sales===user?.name);
   const filtered = applyFilters(visible, filters);
   const exportCols = ["Date","Client","Region","Country","Source","Industry","Status","Sales","Notes"];
   const headers = ["Date","Client","Region","Country","Source","Industry","Status","Sales"];
-  const rows = filtered.map((d,idx)=>({...d, _editIdx:idx, _sortDate: typeof d.Date==="string"?d.Date:String(d.Date||""), _canEdit:isSuper||d._owner===user.name}));
+  const rows = filtered.map((d,idx)=>({...d, _editIdx:idx, _sortDate: typeof d.Date==="string"?d.Date:String(d.Date||""), _canEdit:isSuper||d._owner===user?.name}));
   const trackingSortKeyMap = {"Date":"_sortDate"};
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
   function openEdit(i) { const item = filtered[i]; setForm({...item}); setEditItem(item); setModal(true); }
   async function save() {
     if (!form.Client) return alert("Please enter client name");
-    const f = {...form, _owner:form._owner||user.name, Sales:form.Sales||user.name};
+    const f = {...form, _owner:form._owner||user?.name, Sales:form.Sales||user?.name};
     if (editItem) { await onUpdate(editItem._id, f); }
     else { const {_id,...c}=f; await onAdd(c); }
     setModal(false);
@@ -533,7 +533,7 @@ function Tracking({ T, data=[], user, onAdd, onUpdate, onDelete }) {
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
       <div style={{ color:"#4a5568", fontSize:12, marginBottom:8 }}>💡 Click column headers to sort 点击表头排序</div>
-      <SortableTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Date" sortDesc={true} sortKeyMap={trackingSortKeyMap} />
+      <SortableTable headers={headers} rows={rows} onEdit={openEdit} onDelete={del} canEdit={r=>isSuper||r._owner===user?.name} defaultSort="Date" sortDesc={true} sortKeyMap={trackingSortKeyMap} />
       {modal && <Modal title={editItem?"Edit Tracking":"New Tracking Record"} onClose={()=>setModal(false)}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Field label="Date 日期"><input style={{...IS, colorScheme:"dark", border:"1px solid #4a3f6b"}} type="date" value={form.Date} onChange={e=>fv("Date",e.target.value)} /></Field>
@@ -577,7 +577,7 @@ const NEXT_ACTION_OPTIONS = [
 function FollowUpBanner({ pipeline, user, onJump, T }) {
   const isSuper = user?.role === "admin";
   const today = (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})();
-  const mine = isSuper ? pipeline : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
+  const mine = isSuper ? pipeline : pipeline.filter(d=>d._owner===user?.name||d.Sales===user?.name);
   const due = mine.filter(d => d.FollowUpDate && d.FollowUpDate <= today && d.Stage !== "Order" && d.NextAction !== "Closed – Lost" && d.NextAction !== "Completed");
   if (due.length === 0) return null;
   const T2 = T || getT(); 
@@ -630,8 +630,8 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
   const [inlineEditId, setInlineEditId] = useState(null); // id of row being inline-edited
   const [inlineDate, setInlineDate] = useState("");
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
-  const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", Sales:user.name, _owner:user.name };
-  const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
+  const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", Sales:user?.name, _owner:user?.name };
+  const visible = isSuper ? data : data.filter(d=>d._owner===user?.name||d.Sales===user?.name);
   const filtered = applyFilters(visible, filters);
   const exportCols = ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","Sales","NextAction","FollowUpDate","Notes"];
   const countries = COUNTRIES_BY_REGION[form.Region]||[];
@@ -699,7 +699,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
               style={{ background:"#4a5568", border:"none", color:"#fff", borderRadius:5, padding:"3px 7px", cursor:"pointer", fontSize:11 }}>✕</button>
           </div>;
         }
-        return <div onClick={e=>{e.stopPropagation();if(isSuper||d._owner===user.name){setInlineEditId(d._id);setInlineDate(d.FollowUpDate||"");}}} style={{ cursor:"pointer" }}>
+        return <div onClick={e=>{e.stopPropagation();if(isSuper||d._owner===user?.name){setInlineEditId(d._id);setInlineDate(d.FollowUpDate||"");}}} style={{ cursor:"pointer" }}>
           {d.FollowUpDate
             ? <span style={{ color:isOverdue?"#ef4444":"#f59e0b", fontWeight:isOverdue?700:400, fontSize:12, whiteSpace:"nowrap" }}>{isOverdue?"⚠️ ":""}{d.FollowUpDate}</span>
             : <span style={{ color:"#2d3748", fontSize:11, borderBottom:"1px dashed #2d3748" }}>+ Set date</span>}
@@ -711,7 +711,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
           ? <button onClick={e=>{e.stopPropagation();setPdfViewer({name:d.pdfName,url});}} style={{ background:"#667eea22", border:"1px solid #667eea44", color:"#a78bfa", padding:"3px 7px", borderRadius:6, cursor:"pointer", fontSize:11 }}>📄</button>
           : <span style={{ color:"#4a5568", fontSize:11 }}>—</span>;
       })(),
-      _canEdit: isSuper||d._owner===user.name,
+      _canEdit: isSuper||d._owner===user?.name,
     };
   });
 
@@ -738,7 +738,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
   async function save() {
     if (!form.Client) return alert("Please enter client name");
     if (!form.Amount) return alert("Please enter amount");
-    let f = { ...form, _owner: form._owner || user.name, Sales: form.Sales || user.name };
+    let f = { ...form, _owner: form._owner || user?.name, Sales: form.Sales || user?.name };
 
     // Upload new PDF to Cloudinary if one was selected
     if (pdfFile) {
@@ -892,7 +892,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
-      <SortableTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user.name} defaultSort="Date" sortDesc={true} sortKeyMap={sortKeyMap} highlightId={highlightId} />
+      <SortableTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user?.name} defaultSort="Date" sortDesc={true} sortKeyMap={sortKeyMap} highlightId={highlightId} />
 
       {modal && <Modal title={editItem?"Edit Deal":"New Deal 新增报价"} onClose={()=>setModal(false)}>
         {/* Client with autocomplete */}
@@ -1089,6 +1089,7 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
   );
 }
 function ClientOwnerSearch({ allClients }) {
+  const T = getT();
   const [query, setQuery] = useState("");
   const [searched, setSearched] = useState(false);
   const results = searched && query.trim()
@@ -1187,8 +1188,8 @@ function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[],
   const [historyClient, setHistoryClient] = useState(null); // client name for history panel
   const [histForm, setHistForm] = useState({ date: (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), note:"" });
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
-  const empty={ Client:"", Contact:"", Email:"", Phone:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user.name, LastContact:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Notes:"", _owner:user.name };
-  const visible = isSuper ? data : data.filter(d=>d._owner===user.name||d.Sales===user.name);
+  const empty={ Client:"", Contact:"", Email:"", Phone:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user?.name, LastContact:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Notes:"", _owner:user?.name };
+  const visible = isSuper ? data : data.filter(d=>d._owner===user?.name||d.Sales===user?.name);
   const filtered = applyFilters(visible, filters, "LastContact");
   const exportCols = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact","Notes"];
   const headers = ["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact"];
@@ -1201,7 +1202,7 @@ function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[],
     _sortCountry: (d.Country||"").toLowerCase(),
     _sortStatus: (d.Status||"").toLowerCase(),
     _sortSales: (d.Sales||"").toLowerCase(),
-    _canEdit: isSuper||d._owner===user.name,
+    _canEdit: isSuper||d._owner===user?.name,
     // Display-ready cells for SortableTable
     "Client_cell": <span style={{ color:"#a78bfa", fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}
       onClick={()=>setHistoryClient(historyClient===d.Client?null:d.Client)}>
@@ -1239,7 +1240,7 @@ function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[],
     if (dupWarning && dupWarning.length > 0 && !isSuper) {
       return alert(`⚠️ This client is already assigned to ${dupWarning[0].Sales}. Please coordinate with them first.`);
     }
-    const f={...form,_owner:form._owner||user.name,Sales:form.Sales||user.name};
+    const f={...form,_owner:form._owner||user?.name,Sales:form.Sales||user?.name};
     if (editItem) await onUpdate(editItem._id,f); else { const{_id,...c}=f; await onAdd(c); }
     setModal(false); setDupWarning(null);
   }
@@ -1285,9 +1286,9 @@ function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[],
                 <input value={histForm.note} onChange={e=>setHistForm(p=>({...p,note:e.target.value}))}
                   placeholder="e.g. Sent quotation, client interested..."
                   style={{ ...IS, width:"100%" }}
-                  onKeyDown={e=>{if(e.key==="Enter"&&histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user.name,_owner:user.name});setHistForm({date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(),note:""});}}} />
+                  onKeyDown={e=>{if(e.key==="Enter"&&histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user?.name,_owner:user?.name});setHistForm({date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(),note:""});}}} />
               </div>
-              <Btn onClick={()=>{if(histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user.name,_owner:user.name});setHistForm({date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(),note:""});}}}
+              <Btn onClick={()=>{if(histForm.note.trim()){onAddFollowup({client:historyClient,date:histForm.date,note:histForm.note,sales:user?.name,_owner:user?.name});setHistForm({date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(),note:""});}}}
                 style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"8px 16px", whiteSpace:"nowrap" }}>+ Add</Btn>
             </div>
             {/* History list */}
@@ -1321,7 +1322,7 @@ function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[],
         }))}
         onEdit={i => openEdit(rows[i]?._editIdx ?? i)}
         onDelete={i => del(rows[i]?._editIdx ?? i)}
-        canEdit={r => isSuper || r._owner === user.name}
+        canEdit={r => isSuper || r._owner === user?.name}
         defaultSort="LastContact"
         sortDesc={true}
         sortKeyMap={clientSortKeyMap}
@@ -1383,7 +1384,7 @@ function Reports({ T, data=[], user, onAdd, onUpdate, onDelete }) {
   const [filters, setFilters] = useState({});
   const [form, setForm] = useState({});
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
-  const empty={ Sales:user.name, Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Type:"Weekly", Done:"", Plan:"", Issues:"", _owner:user.name };
+  const empty={ Sales:user?.name, Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Type:"Weekly", Done:"", Plan:"", Issues:"", _owner:user?.name };
 
   // Filter
   const filtered = data.filter(d => {
@@ -1423,12 +1424,12 @@ function Reports({ T, data=[], user, onAdd, onUpdate, onDelete }) {
   function openEdit(item) { setForm({...item}); setEditItem(item); setModal(true); }
   async function save() {
     if (!form.Done) return alert("Please fill in completed work");
-    const f={...form,_owner:form._owner||user.name,Sales:form.Sales||user.name};
+    const f={...form,_owner:form._owner||user?.name,Sales:form.Sales||user?.name};
     if (editItem) await onUpdate(editItem._id,f); else { const{_id,...c}=f; await onAdd(c); }
     setModal(false);
   }
   async function del(item) { if (confirm("Delete?")) await onDelete(item._id); }
-  const canEdit = (d) => isSuper || d._owner===user.name;
+  const canEdit = (d) => isSuper || d._owner===user?.name;
 
   const ReportCard = ({d}) => (
     <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:14, position:"relative", minHeight:120 }}>
@@ -1627,7 +1628,7 @@ function ClientHealth({ T, pipeline=[], clients=[], user }) {
   });
 
   // Non-admin: only see own clients
-  const userRows = isSuper ? allRows : allRows.filter(r => r.sales === user.name);
+  const userRows = isSuper ? allRows : allRows.filter(r => r.sales === user?.name);
 
   // Filter
   const filtered = userRows.filter(r => {
@@ -2093,7 +2094,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
   const [dayModal, setDayModal]   = useState(false);
 
   // Memo sidebar state
-  const [memoViewPerson, setMemoViewPerson] = useState(user.name); // admin can switch
+  const [memoViewPerson, setMemoViewPerson] = useState(user?.name); // admin can switch
   const [memoText, setMemoText]   = useState("");
   const [memoSaving, setMemoSaving] = useState(false);
   const [memoTimer, setMemoTimer] = useState(null);
@@ -2118,7 +2119,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
     setMemoTimer(t);
   }
 
-  const canEditMemo = isSuper || memoViewPerson === user.name;
+  const canEditMemo = isSuper || memoViewPerson === user?.name;
 
   // Team announcement form state
   const [teamText, setTeamText]   = useState("");
@@ -2129,7 +2130,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
   // Helpers
   function dateStr(y, m, d) { return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
   function teamForDay(ds)     { return calTeam.filter(t=>t.date===ds); }
-  function personalForDay(ds) { return calPersonal.filter(t=>t.date===ds && t.owner===user.name); }
+  function personalForDay(ds) { return calPersonal.filter(t=>t.date===ds && t.owner===user?.name); }
 
   // Build calendar grid for current month
   const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
@@ -2158,7 +2159,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
 
   async function addTeamAnnouncement() {
     if (!teamText.trim()) return;
-    await onAddTeam({ date:selectedDay, text:teamText.trim(), author:user.name, _owner:user.name });
+    await onAddTeam({ date:selectedDay, text:teamText.trim(), author:user?.name, _owner:user?.name });
     setTeamText("");
   }
   async function addBusinessTrip() {
@@ -2169,7 +2170,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
     const promises = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
       const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-      promises.push(onAddPersonal({ date:ds, text:"✈️ "+tripText.trim(), priority:"high", done:false, owner:user.name, _owner:user.name }));
+      promises.push(onAddPersonal({ date:ds, text:"✈️ "+tripText.trim(), priority:"high", done:false, owner:user?.name, _owner:user?.name }));
     }
     await Promise.all(promises);
     setTripText(""); setTripEnd(""); setTripMode(false);
@@ -2178,7 +2179,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
 
   async function addPersonalTodo() {
     if (!todoText.trim()) return;
-    await onAddPersonal({ date:selectedDay, text:todoText.trim(), priority:todoPriority, done:false, owner:user.name, _owner:user.name });
+    await onAddPersonal({ date:selectedDay, text:todoText.trim(), priority:todoPriority, done:false, owner:user?.name, _owner:user?.name });
     setTodoText("");
   }
   async function toggleTodo(item) {
@@ -2414,8 +2415,8 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
           )}
         </div>
         <div style={{ padding:"12px 14px" }}>
-          {!isSuper && <div style={{ color:"#4a5568", fontSize:11, marginBottom:8 }}>👤 {user.name} · 只有你和Admin可以看到</div>}
-          {isSuper && memoViewPerson !== user.name && (
+          {!isSuper && <div style={{ color:"#4a5568", fontSize:11, marginBottom:8 }}>👤 {user?.name} · 只有你和Admin可以看到</div>}
+          {isSuper && memoViewPerson !== user?.name && (
             <div style={{ color:"#f59e0b88", fontSize:11, marginBottom:8 }}>
               👁️ Viewing {memoViewPerson}'s memo (read-only)
             </div>
@@ -2458,7 +2459,7 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
     const goal = getGoal(name);
     const target = goal.yearly?.profit || 0;
     const pct = target > 0 ? Math.min(yearProfit/target*100,100) : null;
-    const isMe = name === user.name;
+    const isMe = name === user?.name;
     return { name, yearProfit, target, pct, isMe };
   }).sort((a,b) => b.yearProfit - a.yearProfit);
 
@@ -2569,9 +2570,9 @@ function AIAssistant({ user, pipeline, tracking, clients, isSuper }) {
 
   // Build context snapshot of user's data (or all data for admin)
   function buildContext() {
-    const myPipeline  = isSuper ? pipeline  : pipeline.filter(d=>d._owner===user.name||d.Sales===user.name);
-    const myTracking  = isSuper ? tracking  : tracking.filter(d=>d._owner===user.name||d.Sales===user.name);
-    const myClients   = isSuper ? clients   : clients.filter(d=>d._owner===user.name||d.Sales===user.name);
+    const myPipeline  = isSuper ? pipeline  : pipeline.filter(d=>d._owner===user?.name||d.Sales===user?.name);
+    const myTracking  = isSuper ? tracking  : tracking.filter(d=>d._owner===user?.name||d.Sales===user?.name);
+    const myClients   = isSuper ? clients   : clients.filter(d=>d._owner===user?.name||d.Sales===user?.name);
 
     const orders = myPipeline.filter(d=>d.Stage==="Order");
     const active = myPipeline.filter(d=>d.Stage!=="Order");
@@ -2610,7 +2611,7 @@ function AIAssistant({ user, pipeline, tracking, clients, isSuper }) {
 
     return `
 You are an AI sales assistant for Flowcolour's business management system.
-Current user: ${user.name} (${isSuper?"Admin — full access to ALL team data":"Sales member — your own data only"})
+Current user: ${user?.name} (${isSuper?"Admin — full access to ALL team data":"Sales member — your own data only"})
 Today: ${today}
 
 === SUMMARY ===
@@ -2731,7 +2732,7 @@ Keep it short and actionable!`;
               <span style={{ fontSize:22 }}>🤖</span>
               <div>
                 <div style={{ color:"#fff", fontWeight:700, fontSize:14 }}>AI Sales Assistant</div>
-                <div style={{ color:"#ffffff99", fontSize:11 }}>Hi {user.name}! · {isSuper?"Full data access":"Your data only"}</div>
+                <div style={{ color:"#ffffff99", fontSize:11 }}>Hi {user?.name}! · {isSuper?"Full data access":"Your data only"}</div>
               </div>
             </div>
             <button onClick={()=>setOpen(false)} style={{ background:"#ffffff22", border:"none", color:"#fff", borderRadius:8, padding:"4px 10px", cursor:"pointer", fontSize:16 }}>×</button>
@@ -2894,7 +2895,7 @@ export default function App() {
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, background:T.bg2, border:`1px solid ${T.border}`, borderRadius:10, padding:"6px 12px" }}>
                 <span style={{ fontSize:14 }}>{isSuper?"👑":"👤"}</span>
-                <span style={{ color:T.text, fontSize:14, fontWeight:600 }}>{user.name}</span>
+                <span style={{ color:T.text, fontSize:14, fontWeight:600 }}>{user?.name}</span>
                 <span style={{ background:isSuper?T.accentBg:T.bg4, color:isSuper?T.accent:T.text3, fontSize:11, padding:"2px 8px", borderRadius:8, fontWeight:600 }}>{isSuper?"Admin":"Sales"}</span>
               </div>
               {isSuper && (
