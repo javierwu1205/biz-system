@@ -36,7 +36,7 @@ function useFireCollection(colName) {
     const unsub = onSnapshot(collection(db, colName), snap => {
       const docs = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
       setData(docs); setLoaded(true);
-    }, () => setLoaded(true));
+    }, (err) => { console.warn("Firebase error:", colName, err); setLoaded(true); });
     return unsub;
   }, [colName]);
   return [data, loaded];
@@ -2130,7 +2130,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
   // Helpers
   function dateStr(y, m, d) { return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
   function teamForDay(ds)     { return calTeam.filter(t=>t.date===ds); }
-  function personalForDay(ds) { return calPersonal.filter(t=>t.date===ds && t.owner===user?.name); }
+  function personalForDay(ds) { return calPersonal.filter(t=>t.date===ds && (isSuper || t.owner===user?.name || t._owner===user?.name)); }
 
   // Build calendar grid for current month
   const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
@@ -2167,13 +2167,16 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
     const start = new Date(selectedDay+"T00:00:00");
     const end = new Date(tripEnd+"T00:00:00");
     if (end < start) return alert("结束日期必须晚于开始日期");
-    const promises = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
-      const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-      promises.push(onAddPersonal({ date:ds, text:"✈️ "+tripText.trim(), priority:"high", done:false, owner:user?.name, _owner:user?.name }));
-    }
-    await Promise.all(promises);
-    setTripText(""); setTripEnd(""); setTripMode(false);
+    try {
+      const days = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+        days.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));
+      }
+      for (const ds of days) {
+        await onAddPersonal({ date:ds, text:"✈️ "+tripText.trim(), priority:"high", done:false, owner:user?.name, _owner:user?.name });
+      }
+      setTripText(""); setTripEnd(""); setTripMode(false);
+    } catch(e) { alert("保存失败: "+e.message); }
   }
   async function deleteTeamItem(id) { await onDeleteTeam(id); }
 
@@ -2359,11 +2362,12 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
                     const pc = PRIORITY_CONFIG[t.priority||"normal"];
                     return (
                       <div key={t._id} style={{ display:"flex", alignItems:"center", gap:8, background:t.done?T.bg3:pc.bg, border:`1px solid ${t.done?T.border:pc.color+"33"}`, borderRadius:8, padding:"8px 12px", marginBottom:6, transition:"all 0.2s" }}>
-                        <input type="checkbox" checked={t.done} onChange={()=>toggleTodo(t)}
-                          style={{ width:15, height:15, cursor:"pointer", accentColor:pc.color, flexShrink:0 }} />
+                        <input type="checkbox" checked={t.done} onChange={()=>{if(isSuper||t.owner===user?.name||t._owner===user?.name)toggleTodo(t);}}
+                          style={{ width:15, height:15, cursor:isSuper||t.owner===user?.name||t._owner===user?.name?"pointer":"not-allowed", accentColor:pc.color, flexShrink:0, opacity:isSuper||t.owner===user?.name||t._owner===user?.name?1:0.5 }} />
                         <span style={{ fontSize:13, flex:1, color:t.done?T.text4:T.text, textDecoration:t.done?"line-through":"none", transition:"all 0.2s" }}>{t.text}</span>
+                        {isSuper && t.owner && t.owner!==user?.name && <span style={{ fontSize:10, color:"#a78bfa", fontWeight:600, whiteSpace:"nowrap", background:"#a78bfa22", borderRadius:4, padding:"1px 5px" }}>👤{t.owner}</span>}
                         <span style={{ fontSize:11, color:pc.color, fontWeight:600, whiteSpace:"nowrap" }}>{pc.dot} {pc.label}</span>
-                        <button onClick={()=>deleteTodo(t._id)} style={{ background:"none", border:"none", color:"#ef444466", cursor:"pointer", fontSize:14, padding:0, flexShrink:0 }}>✕</button>
+                        {(isSuper || t.owner===user?.name || t._owner===user?.name) && <button onClick={()=>deleteTodo(t._id)} style={{ background:"none", border:"none", color:"#ef444466", cursor:"pointer", fontSize:14, padding:0, flexShrink:0 }}>✕</button>}
                       </div>
                     );
                   })
@@ -2835,7 +2839,9 @@ export default function App() {
   const [calPersonal, calPersonalLoaded] = useFireCollection("cal_personal");
   const [calMemos, calMemosLoaded] = useFireCollection("cal_memos");
 
-  const loaded = pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded && fuLoaded && calTeamLoaded && calPersonalLoaded && calMemosLoaded;
+  const [forceLoaded, setForceLoaded] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setForceLoaded(true), 8000); return () => clearTimeout(t); }, []);
+  const loaded = forceLoaded || (pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded && fuLoaded && calTeamLoaded && calPersonalLoaded && calMemosLoaded);
 
   const isSuper = user?.role === "admin";
 
