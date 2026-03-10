@@ -271,9 +271,7 @@ function Badge({ status }) {
   return <span style={{ background:c+"22", color:c, border:`1px solid ${c}44`, padding:"2px 10px", borderRadius:20, fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>{status}</span>;
 }
 function Btn({ onClick, children, style={} }) { return <button onClick={onClick} style={{ border:"none", cursor:"pointer", fontWeight:600, borderRadius:8, ...style }}>{children}</button>; }
-  const T = getT();
 function Field({ label, children }) { const T=getT(); return <div style={{ marginBottom:16 }}><label style={{ display:"block", color:T.text2, fontSize:13, marginBottom:6, fontWeight:500 }}>{label}</label>{children}</div>; }
-  const T = getT();
 function Modal({ title, onClose, children }) {
   const T = getT();
   return (
