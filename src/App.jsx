@@ -57,14 +57,15 @@ function saveAccounts(a) { try { localStorage.setItem("biz_v2", JSON.stringify(a
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SALES_MEMBERS = ["Javier","Ryan","Susan","Chaymae","Denny"]; // no Admin
-const CURRENCIES = ["USD","EUR","CNY"];
+const CURRENCIES = ["USD","EUR","CNY","RMB"];
 // Exchange rates to CNY - loaded from localStorage (Admin configurable)
 function getRates() { try { return JSON.parse(localStorage.getItem("biz_rates")||"{}"); } catch(e) { return {}; } }
 function saveRates(r) { localStorage.setItem("biz_rates", JSON.stringify(r)); }
 const DEFAULT_RATES = { USD: 7.25, EUR: 7.85, CNY: 1 };
 function toCNY(amount, currency) {
   const rates = { ...DEFAULT_RATES, ...getRates() };
-  return Number(amount||0) * (rates[currency] || rates["USD"] || 7.25);
+  const cur = (currency==="RMB") ? "CNY" : (currency||"USD");
+  return Number(amount||0) * (rates[cur] || (cur==="CNY" ? 1 : rates["USD"] || 7.25));
 }
 const REGIONS_EN = ["North America","South America","Europe","Southeast Asia","Japan & Korea","Middle East","South Asia","Africa","Central Asia / Eastern Europe","Oceania","Others"];
 const REGIONS_MAP = { "North America":"北美","South America":"南美","Europe":"欧洲","Southeast Asia":"东南亚","Japan & Korea":"日韩","Middle East":"中东","South Asia":"南亚","Africa":"非洲","Central Asia / Eastern Europe":"中亚/东欧","Oceania":"澳洲","Others":"其他" };
@@ -1986,7 +1987,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
               return (
                 <div key={name} style={{ background:T.bg3, borderRadius:10, padding:"12px 16px", border:`1px solid ${T.border}` }}>
                   <div style={{ color:T.text, fontWeight:700, marginBottom:8 }}>👤 {name}</div>
-                  <Field label="Annual Profit Target 年度利润目标 ($)">
+                  <Field label="Annual Profit Target 年度利润目标 (¥CNY)">
                     <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.yearly?.profit??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 100000" />
                   </Field>
                 </div>
