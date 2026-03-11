@@ -2924,7 +2924,8 @@ function App() {
     if (action==="delete") return await fireDelete(col, item._id);
   }
 
-  if (!loaded && user) return (
+  if (!user) return <LoginScreen onLogin={u=>{setUser(u);setTab(0);}} />;
+  if (!loaded) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:_G.T.bg }}>
       <div style={{ color:"#718096", textAlign:"center" }}>
         <div style={{ fontSize:40, marginBottom:12 }}>⏳</div>
@@ -2932,12 +2933,11 @@ function App() {
       </div>
     </div>
   );
-  if (!user) return <LoginScreen onLogin={u=>{setUser(u);setTab(0);}} />;
 
   return (
     <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"'Noto Sans SC',system-ui,sans-serif" }}>
       <ThemeStyle T={T} />
-      {showRateSettings && isSuper && <ExchangeRateSettings onClose={()=>setShowRateSettings(false)} />}
+      {showRateSettings && user && isSuper && <ExchangeRateSettings onClose={()=>setShowRateSettings(false)} />}
       {showPwd && <ChangePasswordModal user={user} onClose={()=>setShowPwd(false)} />}
 
       {/* NAV */}
