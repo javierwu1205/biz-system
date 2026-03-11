@@ -57,7 +57,15 @@ function saveAccounts(a) { try { localStorage.setItem("biz_v2", JSON.stringify(a
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SALES_MEMBERS = ["Javier","Ryan","Susan","Chaymae","Denny"]; // no Admin
-const CURRENCIES = ["USD","EUR","GBP","JPY","AUD","CAD","SGD","RMB"];
+const CURRENCIES = ["USD","EUR","CNY"];
+// Exchange rates to CNY - loaded from localStorage (Admin configurable)
+function getRates() { try { return JSON.parse(localStorage.getItem("biz_rates")||"{}"); } catch(e) { return {}; } }
+function saveRates(r) { localStorage.setItem("biz_rates", JSON.stringify(r)); }
+const DEFAULT_RATES = { USD: 7.25, EUR: 7.85, CNY: 1 };
+function toCNY(amount, currency) {
+  const rates = { ...DEFAULT_RATES, ...getRates() };
+  return Number(amount||0) * (rates[currency] || rates["USD"] || 7.25);
+}
 const REGIONS_EN = ["North America","South America","Europe","Southeast Asia","Japan & Korea","Middle East","South Asia","Africa","Central Asia / Eastern Europe","Oceania","Others"];
 const REGIONS_MAP = { "North America":"北美","South America":"南美","Europe":"欧洲","Southeast Asia":"东南亚","Japan & Korea":"日韩","Middle East":"中东","South Asia":"南亚","Africa":"非洲","Central Asia / Eastern Europe":"中亚/东欧","Oceania":"澳洲","Others":"其他" };
 const COUNTRIES_BY_REGION = {
@@ -1788,13 +1796,13 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
         <div style={{ padding:"24px 28px" }}>
           {/* KPI Row */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:22 }}>
-            <StatCard label="💰 Total Revenue" value={totalRev.toLocaleString()} sub="Closed orders" color="#10b981" />
+            <StatCard label="💰 Total Revenue" value={"¥"+Math.round(totalRev).toLocaleString()} sub="Closed orders" color="#10b981" />
             <StatCard label="📦 Orders Won" value={orders.length} sub={`Win rate: ${winRate}%`} color="#10b981" />
             <StatCard label="🔄 Active Pipeline" value={pending.length} sub={`Forecast: ${forecast.toLocaleString()}`} color="#3b82f6" />
             <StatCard label="🎯 Leads Tracked" value={myTracking.length} sub={`${myClients.length} clients`} color="#f59e0b" />
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:22 }}>
-            <StatCard label="💵 Gross Profit" value={totalProfit.toLocaleString()} sub={`Margin: ${profitPct}%`} color={totalProfit>=0?"#10b981":"#ef4444"} />
+            <StatCard label="💵 Gross Profit" value={"¥"+Math.round(totalProfit).toLocaleString()} sub={`Margin: ${profitPct}%`} color={totalProfit>=0?"#10b981":"#ef4444"} />
             <StatCard label="📊 Total Deals" value={myPipeline.length} sub="All stages" color="#a78bfa" />
             <StatCard label="📝 Reports Filed" value={myReports.length} sub="Activity reports" color="#ec4899" />
           </div>
@@ -1920,8 +1928,8 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   const [goalForm, setGoalForm] = useState({});
   const filtered = applyFilters(pipeline, { ...filters }, "Date");
   const filteredTrack = applyFilters(tracking, { ...filters }, "Date");
-  const totalRev = filtered.filter(d=>d.Stage==="Order").reduce((s,d)=>s+Number(d.Amount||0),0);
-  const totalForecast = filtered.reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
+  const totalRev = filtered.filter(d=>d.Stage==="Order").reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
+  const totalForecast = filtered.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)*(parseInt(d.Probability||"0")/100),0);
 
   // Goals: one doc per person with yearly targets {person, yearly: {amount, orders}}
   function getGoal(name) { return goals.find(g=>g.person===name) || {}; }
@@ -1939,9 +1947,9 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
     const orders = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order");
     const pipe   = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage!=="Order");
     const leads  = filteredTrack.filter(d=>(d.Sales===name||d._owner===name));
-    const rev    = orders.reduce((s,d)=>s+Number(d.Amount||0),0);
-    const totalProfit = orders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
-    const forecast = filtered.filter(d=>(d.Sales===name||d._owner===name)).reduce((s,d)=>s+Number(d.Amount||0)*(parseInt(d.Probability||"0")/100),0);
+    const rev    = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
+    const totalProfit = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
+    const forecast = filtered.filter(d=>(d.Sales===name||d._owner===name)).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)*(parseInt(d.Probability||"0")/100),0);
     const goal = getGoal(name);
     const targetProfit = goal.yearly?.profit || 0;
     const pctProfit = targetProfit > 0 ? Math.min(totalProfit/targetProfit*100,100) : null;
@@ -1951,9 +1959,9 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
 
   const kpis = [
     { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order").length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
-    { label:"Revenue 总收入",      value:totalRev.toLocaleString(),                   sub:"From orders",          color:"#10b981", icon:"💰" },
+    { label:"Revenue 总收入",      value:"¥"+Math.round(totalRev).toLocaleString(),                   sub:"From orders",          color:"#10b981", icon:"💰" },
     { label:"Pipeline 销售机会",   value:filtered.filter(d=>d.Stage!=="Order").length, sub:"Active",              color:"#3b82f6", icon:"🔄" },
-    { label:"Forecast 预计成交",   value:totalForecast.toLocaleString(),              sub:"Probability-weighted",  color:"#a78bfa", icon:"📈" },
+    { label:"Forecast 预计成交",   value:"¥"+Math.round(totalForecast).toLocaleString(),              sub:"Probability-weighted",  color:"#a78bfa", icon:"📈" },
     { label:"New Leads 新客户",    value:filteredTrack.length,                        sub:"Contacts tracked",      color:"#f59e0b", icon:"🎯" },
     { label:"Reports 汇报数",      value:reports.length,                              sub:"This period",           color:"#ec4899", icon:"📝" },
   ];
@@ -2040,8 +2048,8 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
             <div>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
                 <span style={{ color:T.text4, fontSize:10 }}>
-                  Profit 利润: ${p.totalProfit.toLocaleString()}
-                  {p.pctProfit!==null ? ` — ${Math.round(p.pctProfit)}% of $${p.targetProfit.toLocaleString()} target` : " — no target set"}
+                  Profit 利润: ¥${Math.round(p.totalProfit).toLocaleString()}
+                  {p.pctProfit!==null ? ` — ${Math.round(p.pctProfit)}% of ¥${Math.round(p.targetProfit).toLocaleString()} target` : " — no target set"}
                 </span>
                 {p.pctProfit>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
               </div>
@@ -2058,7 +2066,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
         {["Quotation","Negotiation","Order"].map(stage => {
           const cnt = filtered.filter(d=>d.Stage===stage).length;
-          const amt = filtered.filter(d=>d.Stage===stage).reduce((s,d)=>s+Number(d.Amount||0),0);
+          const amt = filtered.filter(d=>d.Stage===stage).reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
           const c = STATUS_COLORS[stage]||"#718096";
           return (
             <div key={stage} style={{ background:T.bg2, border:`1px solid ${c}44`, borderRadius:12, padding:"18px 22px", textAlign:"center" }}>
@@ -2079,6 +2087,7 @@ const PRIORITY_CONFIG = {
   normal:  { label:"普通", color:"#667eea", bg:"#667eea18", dot:"🟢" },
   important:{ label:"重要", color:"#f59e0b", bg:"#f59e0b18", dot:"🟡" },
   urgent:  { label:"紧急", color:"#ef4444", bg:"#ef444418", dot:"🔴" },
+  high:    { label:"紧急", color:"#ef4444", bg:"#ef444418", dot:"🔴" },
 };
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const WEEKDAYS_ZH = ["日","一","二","三","四","五","六"];
@@ -2321,7 +2330,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
                           style={{ ...IS, flex:1, fontSize:13 }}
                           onKeyDown={e=>{ if(e.key==="Enter") addTeamAnnouncement(); }} />
                         <Btn onClick={addTeamAnnouncement} style={{ background:"#f59e0b22", color:"#f59e0b", padding:"8px 14px", border:"1px solid #f59e0b44", flexShrink:0 }}>+ Add</Btn>
-                        <Btn onClick={()=>setTripMode(true)} style={{ background:"#3b82f622", color:"#3b82f6", padding:"8px 14px", border:"1px solid #3b82f644", flexShrink:0 }}>✈️ 出差</Btn>
+                        <Btn onClick={()=>{ const nd=new Date(selectedDay+"T00:00:00"); nd.setDate(nd.getDate()+1); setTripEnd(nd.getFullYear()+"-"+String(nd.getMonth()+1).padStart(2,"0")+"-"+String(nd.getDate()).padStart(2,"0")); setTripMode(true); }} style={{ background:"#3b82f622", color:"#3b82f6", padding:"8px 14px", border:"1px solid #3b82f644", flexShrink:0 }}>✈️ 出差</Btn>
                       </div>
                     ) : (
                       <div style={{ background:T.bg3, border:"1px solid #3b82f644", borderRadius:10, padding:"12px 14px" }}>
@@ -2803,12 +2812,52 @@ Keep it short and actionable!`;
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
-export default function App() {
+export default // ─── EXCHANGE RATE SETTINGS (Admin only) ────────────────────────────────────
+function ExchangeRateSettings({ onClose }) {
+  const T = getT();
+  const [rates, setRates] = useState({ ...DEFAULT_RATES, ...getRates() });
+  function save() { saveRates({ USD: Number(rates.USD), EUR: Number(rates.EUR) }); onClose(); }
+  return (
+    <Modal title="💱 汇率设置 Exchange Rate Settings" onClose={onClose}>
+      <div style={{ color:T.text3, fontSize:13, marginBottom:16 }}>设置各货币对人民币(CNY)的汇率，用于业绩目标和总监主页的金额换算。</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:20 }}>
+        <div>
+          <div style={{ color:T.text2, fontSize:12, marginBottom:6 }}>🇺🇸 USD → CNY</div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ color:T.text3, fontSize:13 }}>1 USD =</span>
+            <input type="number" step="0.01" value={rates.USD} onChange={e=>setRates(r=>({...r,USD:e.target.value}))}
+              style={{ ...IS, width:100, textAlign:"right" }} />
+            <span style={{ color:T.text3, fontSize:13 }}>CNY</span>
+          </div>
+        </div>
+        <div>
+          <div style={{ color:T.text2, fontSize:12, marginBottom:6 }}>🇪🇺 EUR → CNY</div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ color:T.text3, fontSize:13 }}>1 EUR =</span>
+            <input type="number" step="0.01" value={rates.EUR} onChange={e=>setRates(r=>({...r,EUR:e.target.value}))}
+              style={{ ...IS, width:100, textAlign:"right" }} />
+            <span style={{ color:T.text3, fontSize:13 }}>CNY</span>
+          </div>
+        </div>
+      </div>
+      <div style={{ background:T.bg3, borderRadius:8, padding:"10px 14px", marginBottom:16, fontSize:12, color:T.text3 }}>
+        💡 CNY = 1（基准货币，无需设置）
+      </div>
+      <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+        <Btn onClick={onClose} style={{ background:T.bg3, color:T.text2, padding:"10px 20px" }}>取消</Btn>
+        <Btn onClick={save} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"10px 24px" }}>保存汇率</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState(0);
   const [showPwd, setShowPwd] = useState(false);
   const [theme, setTheme] = useState(getTheme);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showRateSettings, setShowRateSettings] = useState(false);
   const [highlightId, setHighlightId] = useState(null); // for banner click-to-pipeline
   const T = theme; // shorthand
 
@@ -2888,6 +2937,7 @@ export default function App() {
   return (
     <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"'Noto Sans SC',system-ui,sans-serif" }}>
       <ThemeStyle T={T} />
+      {showRateSettings && isSuper && <ExchangeRateSettings onClose={()=>setShowRateSettings(false)} />}
       {showPwd && <ChangePasswordModal user={user} onClose={()=>setShowPwd(false)} />}
 
       {/* NAV */}
@@ -2914,7 +2964,8 @@ export default function App() {
               <Btn onClick={()=>setShowPwd(true)} style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.accent, padding:"8px 12px", fontSize:12 }}>🔐 Password</Btn>
               {/* Theme picker */}
               <div style={{ position:"relative" }}>
-                <button onClick={()=>setShowThemePicker(p=>!p)} title="切换主题 Theme" style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, padding:"8px 12px", borderRadius:8, cursor:"pointer", fontSize:14 }}>🎨</button>
+                {isSuper && <button onClick={()=>setShowRateSettings(p=>!p)} title="汇率设置 Exchange Rate" style={{ background:T.bg2, border:`1px solid ${T.border}`, color:"#f59e0b", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontSize:14, fontWeight:600 }}>💱</button>}
+            <button onClick={()=>setShowThemePicker(p=>!p)} title="切换主题 Theme" style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, padding:"8px 12px", borderRadius:8, cursor:"pointer", fontSize:14 }}>🎨</button>
                 {showThemePicker && (
                   <div style={{ position:"absolute", right:0, top:42, background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:10, zIndex:999, minWidth:180, boxShadow:"0 8px 32px #00000066" }}>
                     <div style={{ color:T.text3, fontSize:11, fontWeight:600, marginBottom:8, paddingLeft:6 }}>选择主题 Theme</div>
