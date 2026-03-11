@@ -644,7 +644,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
   const [inlineEditId, setInlineEditId] = useState(null); // id of row being inline-edited
   const [inlineDate, setInlineDate] = useState("");
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
-  const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", Sales:user?.name, _owner:user?.name };
+  const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", isLegacy:false, Sales:user?.name, _owner:user?.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user?.name||d.Sales===user?.name);
   const filtered = applyFilters(visible, filters);
   const exportCols = ["Date","Client","Region","Country","Currency","Amount","Cost","Profit","Stage","Probability","Sales","NextAction","FollowUpDate","Notes"];
@@ -875,7 +875,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
                         <td style={{ padding:"7px 10px", color:"#cbd5e0" }}>{d.Date}</td>
                         <td style={{ padding:"7px 10px", color:"#f59e0b", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()}</td>
                         <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Currency}</td>
-                        <td style={{ padding:"7px 10px" }}><Badge status={d.Stage} /></td>
+                        <td style={{ padding:"7px 10px" }}><Badge status={d.Stage} />{d.isLegacy && <span style={{ marginLeft:4, fontSize:10, background:"#f59e0b22", color:"#f59e0b", padding:"2px 6px", borderRadius:6, fontWeight:600 }}>接手</span>}</td>
                         <td style={{ padding:"7px 10px", color:"#a78bfa" }}>{d.Probability}</td>
                         <td style={{ padding:"7px 10px", color:"#718096", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.NextAction}</td>
                         <td style={{ padding:"7px 10px", color:"#a0aec0" }}>{d.Sales}</td>
@@ -943,6 +943,13 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
           <Field label="Country 国家"><select style={SS} value={form.Country} onChange={e=>fv("Country",e.target.value)}>{countries.map(c=><option key={c}>{c}</option>)}</select></Field>
           <Field label="Amount 销售金额"><input style={IS} type="number" value={form.Amount} onChange={e=>fv("Amount",e.target.value)} placeholder="0" /></Field>
           <Field label="Cost 成本"><input style={IS} type="number" value={form.Cost} onChange={e=>fv("Cost",e.target.value)} placeholder="0 (optional)" /></Field>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", background:form.isLegacy?"#f59e0b18":"transparent", border:form.isLegacy?"1px solid #f59e0b44":"1px solid transparent", borderRadius:8, cursor:"pointer" }} onClick={()=>fv("isLegacy",!form.isLegacy)}>
+            <input type="checkbox" checked={!!form.isLegacy} onChange={e=>fv("isLegacy",e.target.checked)} style={{ width:16, height:16, cursor:"pointer", accentColor:"#f59e0b" }} />
+            <div>
+              <div style={{ color:form.isLegacy?"#f59e0b":"#a0aec0", fontWeight:600, fontSize:13 }}>📋 接手订单 Legacy Order</div>
+              <div style={{ color:"#718096", fontSize:11 }}>不计入正常业绩 · Not counted in regular KPI</div>
+            </div>
+          </div>
           <Field label="Stage 阶段"><select style={SS} value={form.Stage} onChange={e=>fv("Stage",e.target.value)}>{PIPELINE_STAGES.map(s=><option key={s}>{s}</option>)}</select></Field>
           <Field label="Probability 成交概率"><select style={SS} value={form.Probability} onChange={e=>fv("Probability",e.target.value)}>{PROBABILITIES.map(p=><option key={p}>{p}</option>)}</select></Field>
           <Field label="Sales 业务员"><input style={{...IS,opacity:isSuper?1:0.6}} value={form.Sales} disabled={!isSuper} onChange={e=>fv("Sales",e.target.value)} /></Field>
@@ -1888,7 +1895,7 @@ function SalesPersonDetail({ name, pipeline, tracking, clients, reports, onClose
                     <tr key={i} style={{ borderBottom:"1px solid #1e2433" }}>
                       <td style={{ padding:"7px 10px", color:"#e2e8f0", fontWeight:600 }}>{d.Client}</td>
                       <td style={{ padding:"7px 10px", color:"#f59e0b", fontWeight:600 }}>{Number(d.Amount||0).toLocaleString()} {d.Currency}</td>
-                      <td style={{ padding:"7px 10px" }}><Badge status={d.Stage} /></td>
+                      <td style={{ padding:"7px 10px" }}><Badge status={d.Stage} />{d.isLegacy && <span style={{ marginLeft:4, fontSize:10, background:"#f59e0b22", color:"#f59e0b", padding:"2px 6px", borderRadius:6, fontWeight:600 }}>接手</span>}</td>
                       <td style={{ padding:"7px 10px", color:"#a78bfa" }}>{d.Probability}</td>
                       <td style={{ padding:"7px 10px", color:"#718096", maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.NextAction||"—"}</td>
                     </tr>
@@ -1934,8 +1941,8 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   const [goalForm, setGoalForm] = useState({});
   const filtered = applyFilters(pipeline, { ...filters }, "Date");
   const filteredTrack = applyFilters(tracking, { ...filters }, "Date");
-  const totalRev = filtered.filter(d=>d.Stage==="Order").reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
-  const totalForecast = filtered.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)*(parseInt(d.Probability||"0")/100),0);
+  const totalRev = filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
+  const totalForecast = filtered.filter(d=>!d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)*(parseInt(d.Probability||"0")/100),0);
 
   // Goals: one doc per person with yearly targets {person, yearly: {amount, orders}}
   function getGoal(name) { return goals.find(g=>g.person===name) || {}; }
@@ -1949,8 +1956,9 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
     setGoalsModal(false);
   }
 
+  const curYear = new Date().getFullYear().toString();
   const byPerson = SALES_MEMBERS.map(name => {
-    const orders = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order");
+    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&(d.Date||"").startsWith(curYear)&&!d.isLegacy);
     const pipe   = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage!=="Order");
     const leads  = filteredTrack.filter(d=>(d.Sales===name||d._owner===name));
     const rev    = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
@@ -2474,7 +2482,7 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
   function getGoal(name) { return goals.find(g=>g.person===name) || {}; }
 
   const leaderboard = SALES_MEMBERS.map(name => {
-    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear));
+    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear) && !d.isLegacy);
     const yearProfit = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
     const goal = getGoal(name);
     const target = goal.yearly?.profit || 0;
