@@ -2812,7 +2812,7 @@ Keep it short and actionable!`;
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
-export default // ─── EXCHANGE RATE SETTINGS (Admin only) ────────────────────────────────────
+// ─── EXCHANGE RATE SETTINGS (Admin only) ────────────────────────────────────
 function ExchangeRateSettings({ onClose, user }) {
   const T = getT();
   if (!user) return null;
@@ -3011,3 +3011,5 @@ function App() {
     </div>
   );
 }
+
+export default App;
