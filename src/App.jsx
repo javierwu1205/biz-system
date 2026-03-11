@@ -2048,7 +2048,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
             <div>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
                 <span style={{ color:T.text4, fontSize:10 }}>
-                  Profit 利润: ¥${Math.round(p.totalProfit).toLocaleString()}
+                  {"Profit 利润: ¥"+Math.round(p.totalProfit).toLocaleString()}
                   {p.pctProfit!==null ? ` — ${Math.round(p.pctProfit)}% of ¥${Math.round(p.targetProfit).toLocaleString()} target` : " — no target set"}
                 </span>
                 {p.pctProfit>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
