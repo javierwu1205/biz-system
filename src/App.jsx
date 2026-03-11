@@ -1562,8 +1562,8 @@ function WeeklyActivity({ T, pipeline=[], tracking=[], reports=[] }) {
     const quotes = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&inRange(d)&&["Quotation","Negotiation","Order"].includes(d.Stage)).length;
     const won = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&inRange(d)&&d.Stage==="Order").length;
     const reps = reports.filter(d=>(d.Sales===name||d._owner===name)&&inRange(d,"Date")).length;
-    const rev = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&inRange(d)).reduce((s,d)=>s+Number(d.Amount||0),0);
-    return { name, contacts, quotes, won, reps, rev };
+    const profit = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&inRange(d)).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
+    return { name, contacts, quotes, won, reps, rev:profit };
   }).filter(s=>s.contacts+s.quotes+s.won+s.reps>0 || true);
   const max = Math.max(...stats.map(s=>s.contacts),1);
   return (
@@ -1578,7 +1578,7 @@ function WeeklyActivity({ T, pipeline=[], tracking=[], reports=[] }) {
           <div key={s.name} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 20px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
               <span style={{ color:T.text, fontWeight:700, fontSize:16 }}>👤 {s.name}</span>
-              <span style={{ color:"#10b981", fontWeight:700, fontSize:15 }}>Revenue: {s.rev.toLocaleString()}</span>
+              <span style={{ color:"#10b981", fontWeight:700, fontSize:15 }}>{"Profit 利润: ¥"+Math.round(s.rev).toLocaleString()}</span>
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
               {[["📞 Contacts",s.contacts,"#3b82f6"],["💬 Quotes",s.quotes,"#a78bfa"],["✅ Won",s.won,"#10b981"],["📝 Reports",s.reps,"#f59e0b"]].map(([label,val,color])=>(
@@ -1961,6 +1961,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   const kpis = [
     { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order").length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
     { label:"Revenue 总收入",      value:"¥"+Math.round(totalRev).toLocaleString(),                   sub:"From orders",          color:"#10b981", icon:"💰" },
+    { label:"Profit 总利润",        value:"¥"+Math.round(totalRev-filtered.filter(d=>d.Stage==="Order").reduce((s,d)=>s+toCNY(d.Cost,d.Currency),0)).toLocaleString(), sub:"Revenue minus cost",   color:"#f59e0b", icon:"💵" },
     { label:"Pipeline 销售机会",   value:filtered.filter(d=>d.Stage!=="Order").length, sub:"Active",              color:"#3b82f6", icon:"🔄" },
     { label:"Forecast 预计成交",   value:"¥"+Math.round(totalForecast).toLocaleString(),              sub:"Probability-weighted",  color:"#a78bfa", icon:"📈" },
     { label:"New Leads 新客户",    value:filteredTrack.length,                        sub:"Contacts tracked",      color:"#f59e0b", icon:"🎯" },
@@ -2004,7 +2005,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
       <FilterBar isSuper={true} filters={filters} setFilters={setFilters} showPerson={false} />
 
       {/* KPI Cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:12, marginBottom:24 }}>
         {kpis.map(({label,value,sub,color,icon}) => (
           <div key={label} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:14, padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
@@ -2037,7 +2038,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
                 <span style={{ color:T.text, fontWeight:700, fontSize:15 }}>{p.name}</span>
               </div>
               <div style={{ display:"flex", gap:20 }}>
-                {[[p.rev.toLocaleString(),"Revenue","#10b981"],[p.orders,"Orders","#3b82f6"],[p.pipe,"Pipeline","#a78bfa"],[p.leads,"Leads","#f59e0b"],[p.forecast.toLocaleString(),"Forecast","#ec4899"]].map(([val,lbl,c])=>(
+                {[["¥"+Math.round(p.totalProfit).toLocaleString(),"Profit","#f59e0b"],[p.orders,"Orders","#3b82f6"],[p.pipe,"Pipeline","#a78bfa"],[p.leads,"Leads","#ec4899"],[("¥"+Math.round(p.forecast).toLocaleString()),"Forecast","#a78bfa"]].map(([val,lbl,c])=>(
                   <div key={lbl} style={{ textAlign:"center", minWidth:50 }}>
                     <div style={{ color:c, fontSize:15, fontWeight:700 }}>{val}</div>
                     <div style={{ color:T.text4, fontSize:10 }}>{lbl}</div>
