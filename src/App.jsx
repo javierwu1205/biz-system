@@ -2813,8 +2813,9 @@ Keep it short and actionable!`;
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default // ─── EXCHANGE RATE SETTINGS (Admin only) ────────────────────────────────────
-function ExchangeRateSettings({ onClose }) {
+function ExchangeRateSettings({ onClose, user }) {
   const T = getT();
+  if (!user) return null;
   const [rates, setRates] = useState({ ...DEFAULT_RATES, ...getRates() });
   function save() { saveRates({ USD: Number(rates.USD), EUR: Number(rates.EUR) }); onClose(); }
   return (
@@ -2857,7 +2858,7 @@ function App() {
   const [showPwd, setShowPwd] = useState(false);
   const [theme, setTheme] = useState(getTheme);
   const [showThemePicker, setShowThemePicker] = useState(false);
-  const [showRateSettings, setShowRateSettings] = useState(false);
+  const [showRateSettings, setShowRateSettings] = useState(false); // always false on load
   const [highlightId, setHighlightId] = useState(null); // for banner click-to-pipeline
   const T = theme; // shorthand
 
@@ -2937,7 +2938,7 @@ function App() {
   return (
     <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"'Noto Sans SC',system-ui,sans-serif" }}>
       <ThemeStyle T={T} />
-      {showRateSettings && user && isSuper && <ExchangeRateSettings onClose={()=>setShowRateSettings(false)} />}
+      {showRateSettings && user && isSuper && <ExchangeRateSettings onClose={()=>setShowRateSettings(false)} user={user} />}
       {showPwd && <ChangePasswordModal user={user} onClose={()=>setShowPwd(false)} />}
 
       {/* NAV */}
