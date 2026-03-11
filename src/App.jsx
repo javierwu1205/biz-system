@@ -1949,8 +1949,9 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   async function saveGoals() {
     for (const name of SALES_MEMBERS) {
       const amt = parseFloat(goalForm["amt_"+name]||0);
+      const legacyAmt = parseFloat(goalForm["legacy_"+name]||0);
       const existing = goals.find(g=>g.person===name);
-      const data = { person:name, yearly:{ profit:amt } };
+      const data = { person:name, yearly:{ profit:amt, legacyProfit:legacyAmt } };
       await onGoalSave(existing?._id||null, existing ? {...data,_id:existing._id} : data);
     }
     setGoalsModal(false);
@@ -1959,15 +1960,19 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   const curYear = new Date().getFullYear().toString();
   const byPerson = SALES_MEMBERS.map(name => {
     const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&(d.Date||"").startsWith(curYear)&&!d.isLegacy);
-    const pipe   = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage!=="Order");
+    const legacyOrders = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&(d.Date||"").startsWith(curYear)&&d.isLegacy);
+    const pipe   = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage!=="Order"&&!d.isLegacy);
     const leads  = filteredTrack.filter(d=>(d.Sales===name||d._owner===name));
     const rev    = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
     const totalProfit = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
-    const forecast = filtered.filter(d=>(d.Sales===name||d._owner===name)).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)*(parseInt(d.Probability||"0")/100),0);
+    const legacyProfit = legacyOrders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
+    const forecast = filtered.filter(d=>(d.Sales===name||d._owner===name)&&!d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)*(parseInt(d.Probability||"0")/100),0);
     const goal = getGoal(name);
     const targetProfit = goal.yearly?.profit || 0;
+    const legacyTarget = goal.yearly?.legacyProfit || 0;
     const pctProfit = targetProfit > 0 ? Math.min(totalProfit/targetProfit*100,100) : null;
-    return { name, orders:orders.length, pipe:pipe.length, leads:leads.length, rev, totalProfit, forecast, targetProfit, pctProfit };
+    const pctLegacy = legacyTarget > 0 ? Math.min(legacyProfit/legacyTarget*100,100) : null;
+    return { name, orders:orders.length, legacyOrders:legacyOrders.length, pipe:pipe.length, leads:leads.length, rev, totalProfit, legacyProfit, forecast, targetProfit, legacyTarget, pctProfit, pctLegacy };
   });
   const maxRev = Math.max(...byPerson.map(p=>p.rev),1);
 
@@ -2003,6 +2008,9 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
                   <div style={{ color:T.text, fontWeight:700, marginBottom:8 }}>👤 {name}</div>
                   <Field label="Annual Profit Target 年度利润目标 (¥CNY)">
                     <input style={IS} type="number" defaultValue={goalForm["amt_"+name]??g.yearly?.profit??""} onChange={e=>setGoalForm(p=>({...p,["amt_"+name]:e.target.value}))} placeholder="e.g. 100000" />
+                  </Field>
+                  <Field label="📋 Legacy 接手业务目标 (¥CNY)">
+                    <input style={IS} type="number" defaultValue={goalForm["legacy_"+name]??g.yearly?.legacyProfit??""} onChange={e=>setGoalForm(p=>({...p,["legacy_"+name]:e.target.value}))} placeholder="0 (留空则不显示)" />
                   </Field>
                 </div>
               );
@@ -2072,6 +2080,33 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
                 <div style={{ height:"100%", width:(p.pctProfit!==null?p.pctProfit:Math.min(p.rev/maxRev*100,100))+"%", background:p.pctProfit!==null?(p.pctProfit>=100?"linear-gradient(90deg,#10b981,#34d399)":"linear-gradient(90deg,#667eea,#f59e0b)"):"linear-gradient(90deg,#667eea,#10b981)", borderRadius:6, transition:"width 0.6s" }} />
               </div>
             </div>
+            {/* Legacy 接手业务 — only show if person has legacy orders or legacy target */}
+            {(p.legacyOrders > 0 || p.legacyTarget > 0) && (
+              <div style={{ marginTop:10, paddingTop:10, borderTop:`1px dashed ${T.border}` }} onClick={e=>e.stopPropagation()}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                  <span style={{ color:"#f59e0b", fontSize:12, fontWeight:700 }}>📋 接手业务 Legacy</span>
+                  <div style={{ display:"flex", gap:16 }}>
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ color:"#f59e0b", fontSize:13, fontWeight:700 }}>{"¥"+Math.round(p.legacyProfit).toLocaleString()}</div>
+                      <div style={{ color:T.text4, fontSize:10 }}>Profit</div>
+                    </div>
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ color:"#94a3b8", fontSize:13, fontWeight:700 }}>{p.legacyOrders}</div>
+                      <div style={{ color:T.text4, fontSize:10 }}>Orders</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                  <span style={{ color:T.text4, fontSize:10 }}>
+                    {p.pctLegacy!==null ? `${Math.round(p.pctLegacy)}% of ¥${Math.round(p.legacyTarget).toLocaleString()} target` : "no target set — go to 🎯 Set Targets"}
+                  </span>
+                  {p.pctLegacy!==null && p.pctLegacy>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
+                </div>
+                <div style={{ background:T.bg3, borderRadius:6, height:5 }}>
+                  <div style={{ height:"100%", width:(p.pctLegacy!==null?Math.min(p.pctLegacy,100):0)+"%", background:p.pctLegacy>=100?"linear-gradient(90deg,#10b981,#34d399)":"linear-gradient(90deg,#f59e0b,#fbbf24)", borderRadius:6, transition:"width 0.6s" }} />
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -2483,12 +2518,16 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
 
   const leaderboard = SALES_MEMBERS.map(name => {
     const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear) && !d.isLegacy);
+    const legacyOrders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear) && d.isLegacy);
     const yearProfit = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
+    const legacyProfit = legacyOrders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
     const goal = getGoal(name);
     const target = goal.yearly?.profit || 0;
+    const legacyTarget = goal.yearly?.legacyProfit || 0;
     const pct = target > 0 ? Math.min(yearProfit/target*100,100) : null;
+    const pctLegacy = legacyTarget > 0 ? Math.min(legacyProfit/legacyTarget*100,100) : null;
     const isMe = name === user?.name;
-    return { name, yearProfit, target, pct, isMe };
+    return { name, yearProfit, legacyProfit, legacyOrders:legacyOrders.length, target, legacyTarget, pct, pctLegacy, isMe };
   }).sort((a,b) => b.yearProfit - a.yearProfit);
 
   const medals = ["🥇","🥈","🥉"];
@@ -2570,6 +2609,47 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
               {p.isMe && p.target > 0 && !hitGoal && (
                 <div style={{ marginTop:8, color:T.text3, fontSize:12, textAlign:"right" }}>
                   {"💪 ¥"+(Math.round(p.target - p.yearProfit)).toLocaleString()+" more to go this year! 加油！"}
+                </div>
+              )}
+              {/* Legacy 接手业务 section */}
+              {(p.legacyOrders > 0 || p.legacyTarget > 0) && (
+                <div style={{ marginTop:12, paddingTop:12, borderTop:"1px dashed #f59e0b44" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                    <span style={{ color:"#f59e0b", fontSize:12, fontWeight:700 }}>📋 接手业务 Legacy</span>
+                    <div style={{ display:"flex", gap:16, alignItems:"center" }}>
+                      <div style={{ textAlign:"center" }}>
+                        <div style={{ color:"#f59e0b", fontSize:13, fontWeight:700 }}>{"¥"+Math.round(p.legacyProfit).toLocaleString()}</div>
+                        <div style={{ color:"#718096", fontSize:10 }}>Profit</div>
+                      </div>
+                      <div style={{ textAlign:"center" }}>
+                        <div style={{ color:"#94a3b8", fontSize:13, fontWeight:700 }}>{p.legacyOrders}</div>
+                        <div style={{ color:"#718096", fontSize:10 }}>Orders</div>
+                      </div>
+                      {p.legacyTarget > 0 && (
+                        <div style={{ color:p.pctLegacy>=100?"#10b981":"#f59e0b", fontWeight:800, fontSize:16 }}>
+                          {Math.round(p.pctLegacy||0)}%
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {p.legacyTarget > 0 ? (
+                    <>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                        <span style={{ color:"#718096", fontSize:10 }}>{"of ¥"+Math.round(p.legacyTarget).toLocaleString()+" target"}</span>
+                        {p.pctLegacy>=100 && <span style={{ color:"#10b981", fontSize:10, fontWeight:700 }}>✅ Goal Hit!</span>}
+                      </div>
+                      <div style={{ background:"#1a2030", borderRadius:8, height:8, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:Math.min(p.pctLegacy||0,100)+"%", background:p.pctLegacy>=100?"linear-gradient(90deg,#10b981,#34d399)":"linear-gradient(90deg,#f59e0b,#fbbf24)", borderRadius:8, transition:"width 0.8s cubic-bezier(.4,0,.2,1)" }} />
+                      </div>
+                      {p.isMe && p.pctLegacy < 100 && (
+                        <div style={{ marginTop:6, color:"#a0aec0", fontSize:11, textAlign:"right" }}>
+                          {"💪 ¥"+Math.round(p.legacyTarget-p.legacyProfit).toLocaleString()+" legacy to go!"}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ color:"#4a5568", fontSize:11 }}>no legacy target set — Admin 可在 🎯 Set Targets 设置</div>
+                  )}
                 </div>
               )}
             </div>
