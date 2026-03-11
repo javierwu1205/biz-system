@@ -2470,7 +2470,7 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
 
   const leaderboard = SALES_MEMBERS.map(name => {
     const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear));
-    const yearProfit = orders.reduce((s,d)=>s+Number(d.Amount||0)-Number(d.Cost||0),0);
+    const yearProfit = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
     const goal = getGoal(name);
     const target = goal.yearly?.profit || 0;
     const pct = target > 0 ? Math.min(yearProfit/target*100,100) : null;
@@ -2521,7 +2521,7 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
                       {hitGoal && <span style={{ background:"#10b98122", color:"#10b981", fontSize:11, padding:"2px 8px", borderRadius:10, fontWeight:600 }}>✅ Goal Hit!</span>}
                     </div>
                     <div style={{ color:T.text4, fontSize:11, marginTop:2 }}>
-                      This year 今年: <span style={{ color:"#10b981", fontWeight:600 }}>${p.yearProfit.toLocaleString()}</span> profit
+                      This year 今年: <span style={{ color:"#10b981", fontWeight:600 }}>{"¥"+Math.round(p.yearProfit).toLocaleString()}</span> profit
                     </div>
                   </div>
                 </div>
@@ -2529,7 +2529,7 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
                 <div style={{ textAlign:"right" }}>
                   {p.target > 0
                     ? <><div style={{ color:hitGoal?"#10b981":"#f59e0b", fontWeight:800, fontSize:18 }}>{p.pct!==null?Math.round(p.pct):0}%</div>
-                       <div style={{ color:T.text4, fontSize:11 }}>of ${p.target.toLocaleString()} target</div></>
+                       <div style={{ color:T.text4, fontSize:11 }}>{"of ¥"+Math.round(p.target).toLocaleString()+" target"}</div></>
                     : <div style={{ color:T.text4, fontSize:12 }}>No target set</div>
                   }
                 </div>
@@ -2547,7 +2547,7 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
                 }}>
                   {barPct > 15 && (
                     <span style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", color:"#fff", fontSize:9, fontWeight:700, whiteSpace:"nowrap" }}>
-                      ${p.yearProfit.toLocaleString()}
+                      {"¥"+Math.round(p.yearProfit).toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -2556,7 +2556,7 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
               {/* Motivational message for current user */}
               {p.isMe && p.target > 0 && !hitGoal && (
                 <div style={{ marginTop:8, color:T.text3, fontSize:12, textAlign:"right" }}>
-                  💪 ${(p.target - p.yearProfit).toLocaleString()} more to go this year! 加油！
+                  {"💪 ¥"+(Math.round(p.target - p.yearProfit)).toLocaleString()+" more to go this year! 加油！"}
                 </div>
               )}
             </div>
