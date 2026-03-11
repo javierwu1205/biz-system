@@ -394,6 +394,18 @@ function applyFilters(data, filters, dateField="Date") {
 }
 
 // ─── CHANGE PASSWORD ─────────────────────────────────────────────────────────
+function PwdInput({ label, val, setVal, show, setShow }) {
+  return (
+    <Field label={label}>
+      <div style={{ position:"relative" }}>
+        <input style={IS} type={show?"text":"password"} value={val}
+          onChange={e=>setVal(e.target.value)} />
+        <button onClick={()=>setShow(v=>!v)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#718096", fontSize:16 }}>{show?"🙈":"👁"}</button>
+      </div>
+    </Field>
+  );
+}
+
 function ChangePasswordModal({ user, onClose }) {
   const [oldPwd, setOldPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -415,14 +427,7 @@ function ChangePasswordModal({ user, onClose }) {
     else accts.members[user.username].password = newPwd;
     saveAccounts(accts); setOk(true);
   }
-  const PwdInput = ({ label, val, setVal, show, setShow }) => (
-    <Field label={label}>
-      <div style={{ position:"relative" }}>
-        <input style={IS} type={show?"text":"password"} value={val} onChange={e=>setVal(e.target.value)} />
-        <button onClick={()=>setShow(v=>!v)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#718096", fontSize:16 }}>{show?"🙈":"👁"}</button>
-      </div>
-    </Field>
-  );
+
   return (
     <Modal title="🔐 Change Password 修改密码" onClose={onClose}>
       {ok ? (
