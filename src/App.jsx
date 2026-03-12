@@ -1624,22 +1624,41 @@ function ClientHealth({ T, pipeline=[], clients=[], user }) {
   const [sortCol, setSortCol]   = useState("days");
   const [sortDir, setSortDir]   = useState("desc");
 
-  // Build client map from pipeline orders + client list
+  // Build client map - use most recent activity across ALL pipeline stages + LastContact
   const clientMap = {};
-  pipeline.filter(d=>d.Stage==="Order").forEach(d => {
+  // First pass: all pipeline entries (Quotation, Negotiation, Order, FollowUpDate)
+  pipeline.forEach(d => {
     const key = d.Client;
-    if (!clientMap[key] || d.Date > clientMap[key].lastOrder) {
-      clientMap[key] = { client:d.Client, sales:d.Sales||d._owner||"—", lastOrder:d.Date, region:d.Region, country:d.Country };
-    }
+    // Collect all relevant dates for this entry
+    const dates = [d.Date, d.FollowUpDate].filter(Boolean);
+    dates.forEach(dt => {
+      if (!clientMap[key] || dt > (clientMap[key].lastContact||"")) {
+        clientMap[key] = {
+          client: d.Client,
+          sales: d.Sales||d._owner||"—",
+          lastContact: dt,
+          lastContactSource: d.Stage==="Order"?"Order":d.Stage==="Negotiation"?"Negotiation":"Quotation",
+          region: d.Region, country: d.Country
+        };
+      }
+    });
+    if (!clientMap[key]) clientMap[key] = { client:d.Client, sales:d.Sales||d._owner||"—", lastContact:"", lastContactSource:"", region:d.Region, country:d.Country };
   });
+  // Second pass: clients table LastContact (only if more recent or no pipeline data)
   clients.forEach(c => {
     const key = c.Client||c.公司名称;
-    if (!clientMap[key]) clientMap[key] = { client:key, sales:c.Sales||c.负责人||"—", lastOrder:c.LastContact||c.最近联系||"", region:c.Region||c.地区||"—", country:c.Country||c.国家||"—" };
+    const lc = c.LastContact||c.最近联系||"";
+    if (!clientMap[key]) {
+      clientMap[key] = { client:key, sales:c.Sales||c.负责人||"—", lastContact:lc, lastContactSource:"Manual", region:c.Region||c.地区||"—", country:c.Country||c.国家||"—" };
+    } else if (lc > (clientMap[key].lastContact||"")) {
+      clientMap[key].lastContact = lc;
+      clientMap[key].lastContactSource = "Manual";
+    }
   });
 
   const now = new Date();
   const allRows = Object.values(clientMap).map(c => {
-    const last = c.lastOrder ? new Date(c.lastOrder) : null;
+    const last = c.lastContact ? new Date(c.lastContact) : null;
     const days = last ? Math.floor((now-last)/864e5) : 9999;
     const risk = days<=30?"Low":days<=90?"Medium":"High";
     const riskLabel = days<=30?"🟢 Healthy":days<=90?"🟡 Medium":"🔴 High Risk";
@@ -1676,7 +1695,7 @@ function ClientHealth({ T, pipeline=[], clients=[], user }) {
     ["sales","Sales 业务"],
     ["region","Region 地区"],
     ["country","Country 国家"],
-    ["lastOrder","Last Order 最后订单"],
+    ["lastContact","Last Activity 最近活动"],
     ["days","Days Since 距今天数"],
     ["risk","Risk 风险等级"],
   ];
@@ -1726,7 +1745,10 @@ function ClientHealth({ T, pipeline=[], clients=[], user }) {
                 <td style={{ padding:"10px 12px", color:T.text2 }}>{r.sales}</td>
                 <td style={{ padding:"10px 12px", color:T.text2 }}>{r.region}</td>
                 <td style={{ padding:"10px 12px", color:T.text2 }}>{r.country}</td>
-                <td style={{ padding:"10px 12px", color:T.text2 }}>{r.lastOrder||"—"}</td>
+                <td style={{ padding:"10px 12px", color:T.text2 }}>
+                  <div>{r.lastContact||"—"}</div>
+                  {r.lastContactSource && <span style={{ fontSize:10, background:r.lastContactSource==="Manual"?"#3b82f622":r.lastContactSource==="Order"?"#10b98122":"#a78bfa22", color:r.lastContactSource==="Manual"?"#60a5fa":r.lastContactSource==="Order"?"#10b981":"#a78bfa", padding:"1px 6px", borderRadius:4, fontWeight:600 }}>{r.lastContactSource}</span>}
+                </td>
                 <td style={{ padding:"10px 12px", color:r.riskColor, fontWeight:600 }}>{r.dayStr}</td>
                 <td style={{ padding:"10px 12px" }}>
                   <span style={{ background:r.riskColor+"22", color:r.riskColor, border:`1px solid ${r.riskColor}44`, padding:"3px 12px", borderRadius:20, fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>{r.riskLabel}</span>
