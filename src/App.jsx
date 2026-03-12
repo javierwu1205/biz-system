@@ -3037,9 +3037,25 @@ function App() {
   const curTab = tabs[tab]?.key || tabs[0]?.key;
 
   async function op(col, action, item) {
-    if (action==="add")    return await fireAdd(col, item);
-    if (action==="update") return await fireUpdate(col, item._id, item);
-    if (action==="delete") return await fireDelete(col, item._id);
+    if (action==="add")    await fireAdd(col, item);
+    else if (action==="update") await fireUpdate(col, item._id, item);
+    else if (action==="delete") return await fireDelete(col, item._id);
+
+    // Auto-sync client LastContact when pipeline is added/updated
+    if (col === "pipeline" && (action==="add" || action==="update")) {
+      const pipelineDate = item.Date || "";
+      const followUpDate = item.FollowUpDate || "";
+      const latestDate = [pipelineDate, followUpDate].filter(Boolean).sort().reverse()[0];
+      if (latestDate && item.Client) {
+        const matchedClient = clients.find(c =>
+          (c.Client || c.公司名称) === item.Client &&
+          (c.Sales === item.Sales || c._owner === item._owner || c.Sales === item._owner)
+        ) || clients.find(c => (c.Client || c.公司名称) === item.Client);
+        if (matchedClient && latestDate > (matchedClient.LastContact || "")) {
+          await fireUpdate("clients2", matchedClient._id, { ...matchedClient, LastContact: latestDate });
+        }
+      }
+    }
   }
 
   if (!user) return <LoginScreen onLogin={u=>{setUser(u);setTab(0);}} />;
