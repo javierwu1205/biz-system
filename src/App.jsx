@@ -1030,7 +1030,7 @@ function PdfMigrationTool({ pipeline }) { return null; }
 // ─── SORTABLE TABLE ───────────────────────────────────────────────────────────
 // Each row object should have _sort_<header> keys for sortable columns.
 // Falls back to row[header] if no _sort_ key exists.
-function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={}, highlightId }) {
+function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, sortDesc=false, sortKeyMap={}, highlightId, highlightClient }) {
   const T = getT();
   const [sortCol, setSortCol] = useState(defaultSort || headers[0]);
   const [sortDir, setSortDir] = useState(sortDesc ? "desc" : "asc");
@@ -1086,7 +1086,7 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
             ? <tr><td colSpan={headers.length+1} style={{ textAlign:"center", padding:40, color:T.text4 }}>No data yet</td></tr>
             : sorted.map((row, i) => {
               const origIdx = row._editIdx !== undefined ? row._editIdx : i;
-              const isHighlighted = highlightId && row._id === highlightId;
+              const isHighlighted = (highlightId && row._id === highlightId) || (highlightClient && (row.Client === highlightClient || row._rawClient === highlightClient));
               return (
               <tr key={row._id || i}
                 ref={isHighlighted ? (node => { if(node) node.scrollIntoView({behavior:"smooth",block:"center"}); }) : null}
@@ -1109,7 +1109,7 @@ function SortableTable({ headers, rows, onEdit, onDelete, canEdit, defaultSort, 
     </div>
   );
 }
-function ClientOwnerSearch({ allClients }) {
+function ClientOwnerSearch({ allClients, onScrollTo }) {
   const T = getT();
   const [query, setQuery] = useState("");
   const [searched, setSearched] = useState(false);
@@ -1162,7 +1162,11 @@ function ClientOwnerSearch({ allClients }) {
                 <div key={i} style={{ background:T.bg2, border:"1px solid #ef444422", borderRadius:10, padding:"14px 18px", marginBottom:8, display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:12 }}>
                   <div>
                     <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>🏢 Client 客户</div>
-                    <div style={{ color:"#e2e8f0", fontWeight:700, fontSize:14 }}>{r.Client}</div>
+                    <div
+                      onClick={()=>onScrollTo && onScrollTo(r.Client)}
+                      style={{ color: onScrollTo?"#60a5fa":"#e2e8f0", fontWeight:700, fontSize:14, cursor:onScrollTo?"pointer":"default", textDecoration:onScrollTo?"underline":"none" }}
+                      title={onScrollTo?"Click to jump to this client in the list below":""}
+                    >{r.Client} {onScrollTo && <span style={{ fontSize:11, color:"#60a5fa" }}>↓ 跳转</span>}</div>
                   </div>
                   <div>
                     <div style={{ color:"#718096", fontSize:11, marginBottom:4 }}>👤 Sales Owner 负责业务</div>
@@ -1208,7 +1212,12 @@ function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[],
   const [dupWarning, setDupWarning] = useState(null);
   const [historyClient, setHistoryClient] = useState(null); // client name for history panel
   const [histForm, setHistForm] = useState({ date: (()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), note:"" });
+  const [scrollTarget, setScrollTarget] = useState(null);
   const fv=(k,v)=>setForm(p=>({...p,[k]:v}));
+  function handleScrollTo(clientName) {
+    setScrollTarget(clientName);
+    setTimeout(() => setScrollTarget(null), 3000);
+  }
   const empty={ Client:"", Contact:"", Email:"", Phone:"", Region:"North America", Country:"United States", Status:"Pending", Sales:isSuper?"Javier":user?.name, LastContact:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Notes:"", _owner:user?.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user?.name||d.Sales===user?.name);
   const filtered = applyFilters(visible, filters, "LastContact");
@@ -1270,7 +1279,7 @@ function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[],
   return (
     <div>
       {/* Client Ownership Search Box — always visible at top */}
-      <ClientOwnerSearch allClients={data} />
+      <ClientOwnerSearch allClients={data} onScrollTo={handleScrollTo} />
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
         <div style={{ color:T.text2, fontSize:14 }}><b style={{ color:T.text }}>{filtered.length}</b>{filtered.length<visible.length?` / ${visible.length}`:""} clients</div>
@@ -1330,8 +1339,10 @@ function ClientMgmt({ T, data=[], user, onAdd, onUpdate, onDelete, followups=[],
       {/* Client table with sorting + WhatsApp + Email buttons */}
       <SortableTable
         headers={["Client","Contact","Phone","Email","Region","Country","Status","Sales","LastContact"]}
+        highlightClient={scrollTarget}
         rows={rows.map(r => ({
           ...r,
+          _rawClient: r.Client,
           Client: r["Client_cell"],
           Phone: r["Phone_cell"],
           Email: r["Email_cell"],
@@ -3007,8 +3018,10 @@ function App() {
   const [calMemos, calMemosLoaded] = useFireCollection("cal_memos");
 
   const [forceLoaded, setForceLoaded] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setForceLoaded(true), 8000); return () => clearTimeout(t); }, []);
-  const loaded = forceLoaded || (pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded && fuLoaded && calTeamLoaded && calPersonalLoaded && calMemosLoaded);
+  useEffect(() => { const t = setTimeout(() => setForceLoaded(true), 4000); return () => clearTimeout(t); }, []);
+  // Core data: pipeline, clients, tracking, reports, goals - show UI as soon as these are ready
+  // Calendar data loads in background (doesn't block UI)
+  const loaded = forceLoaded || (pipeLoaded && trackLoaded && cliLoaded && repLoaded && goalsLoaded);
 
   const isSuper = user?.role === "admin";
 
