@@ -1630,7 +1630,7 @@ function ClientHealth({ T, pipeline=[], clients=[], user }) {
   pipeline.forEach(d => {
     const key = d.Client;
     // Collect all relevant dates for this entry
-    const dates = [d.Date, d.FollowUpDate].filter(Boolean);
+    const dates = [d.Date].filter(Boolean); // FollowUpDate is future plan, not past contact
     dates.forEach(dt => {
       if (!clientMap[key] || dt > (clientMap[key].lastContact||"")) {
         clientMap[key] = {
@@ -3044,8 +3044,8 @@ function App() {
     // Auto-sync client LastContact when pipeline is added/updated
     if (col === "pipeline" && (action==="add" || action==="update")) {
       const pipelineDate = item.Date || "";
-      const followUpDate = item.FollowUpDate || "";
-      const latestDate = [pipelineDate, followUpDate].filter(Boolean).sort().reverse()[0];
+      // FollowUpDate is future plan - not used for LastContact sync
+      const latestDate = pipelineDate; // only use Date, not FollowUpDate (future plan)
       if (latestDate && item.Client) {
         const matchedClient = clients.find(c =>
           (c.Client || c.公司名称) === item.Client &&
