@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBixO_uMIhQFlDoQ59U2a3kJBAZclZTk50",
@@ -45,15 +45,34 @@ async function fireAdd(col, data) { const { _id, ...c } = data; await addDoc(col
 async function fireUpdate(col, id, data) { const { _id, ...c } = data; await updateDoc(doc(db, col, id), { ...c, _ts: Date.now() }); }
 async function fireDelete(col, id) { await deleteDoc(doc(db, col, id)); }
 
-// ─── ACCOUNTS ────────────────────────────────────────────────────────────────
-function getAccounts() {
-  try { const s = localStorage.getItem("biz_v2"); if (s) return JSON.parse(s); } catch(e) {}
-  return {
-    admins: { javier: { name:"Javier", password:"AJForever1205" }, admin: { name:"Admin", password:"Admin123" } },
-    members: { ryan:{name:"Ryan",password:"Ryan123"}, susan:{name:"Susan",password:"Susan123"}, chaymae:{name:"Chaymae",password:"Chaymae123"}, denny:{name:"Denny",password:"Denny123"} }
-  };
+// ─── ACCOUNTS (Firebase-synced) ───────────────────────────────────────────────
+const DEFAULT_ACCOUNTS = {
+  admins: { javier: { name:"Javier", password:"AJForever1205" }, admin: { name:"Admin", password:"Admin123" } },
+  members: { ryan:{name:"Ryan",password:"Ryan123"}, susan:{name:"Susan",password:"Susan123"}, chaymae:{name:"Chaymae",password:"Chaymae123"}, denny:{name:"Denny",password:"Denny123"} }
+};
+let _accountsCache = null;
+async function getAccountsAsync() {
+  if (_accountsCache) return _accountsCache;
+  try {
+    const snap = await getDoc(doc(db, "config", "accounts"));
+    if (snap.exists()) { _accountsCache = snap.data(); return _accountsCache; }
+  } catch(e) {}
+  return DEFAULT_ACCOUNTS;
 }
-function saveAccounts(a) { try { localStorage.setItem("biz_v2", JSON.stringify(a)); } catch(e) {} }
+async function saveAccountsAsync(a) {
+  _accountsCache = a;
+  try { await setDoc(doc(db, "config", "accounts"), a); } catch(e) {}
+}
+function getAccounts() {
+  if (_accountsCache) return _accountsCache;
+  try { const s = localStorage.getItem("biz_v2"); if (s) return JSON.parse(s); } catch(e) {}
+  return DEFAULT_ACCOUNTS;
+}
+function saveAccounts(a) {
+  _accountsCache = a;
+  try { localStorage.setItem("biz_v2", JSON.stringify(a)); } catch(e) {}
+  try { setDoc(doc(db, "config", "accounts"), a); } catch(e) {}
+}
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SALES_MEMBERS = ["Javier","Ryan","Susan","Chaymae","Denny"]; // no Admin
@@ -462,9 +481,8 @@ function LoginScreen({ onLogin }) {
   function login() {
     if (!username.trim()||!pwd) { setErr("Please enter username and password"); return; }
     setLoading(true);
-    setTimeout(() => {
-      const u = username.trim().toLowerCase();
-      const accts = getAccounts();
+    const u = username.trim().toLowerCase();
+    getAccountsAsync().then(accts => {
       if (accts.admins[u]) {
         if (pwd === accts.admins[u].password) { onLogin({ role:"admin", name:accts.admins[u].name, username:u }); return; }
         setErr("Invalid username or password"); setLoading(false); return;
@@ -474,7 +492,7 @@ function LoginScreen({ onLogin }) {
         setErr("Invalid username or password"); setLoading(false); return;
       }
       setErr("Username not found"); setLoading(false);
-    }, 400);
+    }).catch(() => { setErr("Network error, please retry"); setLoading(false); });
   }
   return (
     <div style={{ minHeight:"100vh", background:"#0f1420", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
