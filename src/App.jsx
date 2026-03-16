@@ -76,7 +76,7 @@ function saveAccounts(a) {
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SALES_MEMBERS = ["Javier","Ryan","Susan","Chaymae","Denny"]; // no Admin
-const CURRENCIES = ["USD","EUR","CNY","RMB"];
+const CURRENCIES = ["USD","EUR","CNY"];
 // Exchange rates to CNY - loaded from localStorage (Admin configurable)
 function getRates() { try { return JSON.parse(localStorage.getItem("biz_rates")||"{}"); } catch(e) { return {}; } }
 function saveRates(r) { localStorage.setItem("biz_rates", JSON.stringify(r)); }
