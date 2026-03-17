@@ -54,10 +54,12 @@ let _accountsCache = null;
 async function getAccountsAsync() {
   if (_accountsCache) return _accountsCache;
   try {
-    const snap = await getDoc(doc(db, "config", "accounts"));
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000));
+    const snap = await Promise.race([getDoc(doc(db, "config", "accounts")), timeout]);
     if (snap.exists()) { _accountsCache = snap.data(); return _accountsCache; }
   } catch(e) {}
   return DEFAULT_ACCOUNTS;
+}
 }
 async function saveAccountsAsync(a) {
   _accountsCache = a;
