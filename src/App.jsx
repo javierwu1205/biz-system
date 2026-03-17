@@ -60,7 +60,6 @@ async function getAccountsAsync() {
   } catch(e) {}
   return DEFAULT_ACCOUNTS;
 }
-}
 async function saveAccountsAsync(a) {
   _accountsCache = a;
   try { await setDoc(doc(db, "config", "accounts"), a); } catch(e) {}
