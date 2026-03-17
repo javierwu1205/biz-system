@@ -1995,7 +1995,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   const [goalForm, setGoalForm] = useState({});
   const filtered = applyFilters(pipeline, { ...filters }, "Date");
   const filteredTrack = applyFilters(tracking, { ...filters }, "Date");
-  const totalRev = filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
+  const totalRev = filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy&&d.NextAction==="Completed").reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
   const totalForecast = filtered.filter(d=>!d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)*(parseInt(d.Probability||"0")/100),0);
 
   // Goals: one doc per person with yearly targets {person, yearly: {amount, orders}}
