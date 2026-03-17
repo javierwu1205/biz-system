@@ -2010,8 +2010,8 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
 
   const curYear = new Date().getFullYear().toString();
   const byPerson = SALES_MEMBERS.map(name => {
-    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&(d.Date||"").startsWith(curYear)&&!d.isLegacy);
-    const legacyOrders = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&(d.Date||"").startsWith(curYear)&&d.isLegacy);
+    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&(d.Date||"").startsWith(curYear)&&!d.isLegacy&&d.NextAction==="Completed");
+    const legacyOrders = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&(d.Date||"").startsWith(curYear)&&d.isLegacy&&d.NextAction==="Completed");
     const pipe   = filtered.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage!=="Order"&&!d.isLegacy);
     const leads  = filteredTrack.filter(d=>(d.Sales===name||d._owner===name));
     const rev    = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
@@ -2568,8 +2568,8 @@ function TeamLeaderboard({ T, pipeline=[], goals=[], user }) {
   function getGoal(name) { return goals.find(g=>g.person===name) || {}; }
 
   const leaderboard = SALES_MEMBERS.map(name => {
-    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear) && !d.isLegacy);
-    const legacyOrders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear) && d.isLegacy);
+    const orders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear) && !d.isLegacy && d.NextAction==="Completed");
+    const legacyOrders = pipeline.filter(d=>(d.Sales===name||d._owner===name) && d.Stage==="Order" && (d.Date||"").startsWith(thisYear) && d.isLegacy && d.NextAction==="Completed");
     const yearProfit = orders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
     const legacyProfit = legacyOrders.reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
     const goal = getGoal(name);
