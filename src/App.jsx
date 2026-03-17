@@ -1606,7 +1606,7 @@ function WeeklyActivity({ T, pipeline=[], tracking=[], reports=[] }) {
     const quotes = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&inRange(d)&&["Quotation","Negotiation","Order"].includes(d.Stage)).length;
     const won = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&inRange(d)&&d.Stage==="Order").length;
     const reps = reports.filter(d=>(d.Sales===name||d._owner===name)&&inRange(d,"Date")).length;
-    const profit = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&inRange(d)).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
+    const profit = pipeline.filter(d=>(d.Sales===name||d._owner===name)&&d.Stage==="Order"&&inRange(d)&&d.NextAction==="Completed").reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
     return { name, contacts, quotes, won, reps, rev:profit };
   }).filter(s=>s.contacts+s.quotes+s.won+s.reps>0 || true);
   const max = Math.max(...stats.map(s=>s.contacts),1);
@@ -2083,7 +2083,7 @@ const legacyRev    = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy&&d.NextAct
       <FilterBar isSuper={true} filters={filters} setFilters={setFilters} showPerson={false} />
 
       {/* KPI Cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:12, marginBottom:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:12, marginBottom:24 }}>
         {kpis.map(({label,value,sub,color,icon}) => (
           <div key={label} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:14, padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
@@ -2329,7 +2329,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
       </div>
 
       {/* Weekday headers */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:3, marginBottom:3 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:3 }}>
         {WEEKDAYS.map((w,i) => (
           <div key={w} style={{ textAlign:"center", color: i===0||i===6 ? "#ef4444" : T.text3, fontSize:12, fontWeight:600, padding:"6px 0" }}>
             {w}<span style={{ color:"#4a5568", marginLeft:3, fontSize:10 }}>({WEEKDAYS_ZH[i]})</span>
@@ -2338,7 +2338,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
       </div>
 
       {/* Calendar grid */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:3 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
         {cells.map((d, i) => {
           if (!d) return <div key={"empty-"+i} />;
           const ds = dateStr(viewYear, viewMonth, d);
