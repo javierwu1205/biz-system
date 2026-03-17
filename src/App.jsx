@@ -1952,14 +1952,17 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   });
   const maxRev = Math.max(...byPerson.map(p=>p.rev),1);
 
+  const legacyRev    = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
+  const legacyProfit = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
   const kpis = [
-    { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order").length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
-    { label:"Revenue 总收入",      value:"¥"+Math.round(totalRev).toLocaleString(),                   sub:"From orders",          color:"#10b981", icon:"💰" },
-    { label:"Profit 总利润",        value:"¥"+Math.round(totalRev-filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).reduce((s,d)=>s+toCNY(d.Cost,d.Currency),0)).toLocaleString(), sub:"Revenue minus cost",   color:"#f59e0b", icon:"💵" },
+    { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
+    { label:"Revenue 总收入",      value:"¥"+Math.round(totalRev).toLocaleString(),                 sub:"Excl. Legacy",          color:"#10b981", icon:"💰" },
+    { label:"Profit 总利润",        value:"¥"+Math.round(totalRev-filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).reduce((s,d)=>s+toCNY(d.Cost,d.Currency),0)).toLocaleString(), sub:"Excl. Legacy", color:"#f59e0b", icon:"💵" },
+    { label:"📋 Legacy Revenue",   value:"¥"+Math.round(legacyRev).toLocaleString(),               sub:"接手业务收入",           color:"#94a3b8", icon:"📋" },
+    { label:"📋 Legacy Profit",    value:"¥"+Math.round(legacyProfit).toLocaleString(),             sub:"接手业务利润",           color:"#94a3b8", icon:"📋" },
     { label:"Pipeline 销售机会",   value:filtered.filter(d=>d.Stage!=="Order").length, sub:"Active",              color:"#3b82f6", icon:"🔄" },
-    { label:"Forecast 预计成交",   value:"¥"+Math.round(totalForecast).toLocaleString(),              sub:"Probability-weighted",  color:"#a78bfa", icon:"📈" },
+    { label:"Forecast 预计成交",   value:"¥"+Math.round(totalForecast).toLocaleString(),            sub:"Probability-weighted",  color:"#a78bfa", icon:"📈" },
     { label:"New Leads 新客户",    value:filteredTrack.length,                        sub:"Contacts tracked",      color:"#f59e0b", icon:"🎯" },
-    { label:"Reports 汇报数",      value:reports.length,                              sub:"This period",           color:"#ec4899", icon:"📝" },
   ];
 
   return (
@@ -2002,7 +2005,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
       <FilterBar isSuper={true} filters={filters} setFilters={setFilters} showPerson={false} />
 
       {/* KPI Cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:12, marginBottom:24 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(8,1fr)", gap:12, marginBottom:24 }}>
         {kpis.map(({label,value,sub,color,icon}) => (
           <div key={label} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:14, padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
@@ -2248,7 +2251,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
       </div>
 
       {/* Weekday headers */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:3 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(8,1fr)", gap:3, marginBottom:3 }}>
         {WEEKDAYS.map((w,i) => (
           <div key={w} style={{ textAlign:"center", color: i===0||i===6 ? "#ef4444" : T.text3, fontSize:12, fontWeight:600, padding:"6px 0" }}>
             {w}<span style={{ color:"#4a5568", marginLeft:3, fontSize:10 }}>({WEEKDAYS_ZH[i]})</span>
@@ -2257,7 +2260,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
       </div>
 
       {/* Calendar grid */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(8,1fr)", gap:3 }}>
         {cells.map((d, i) => {
           if (!d) return <div key={"empty-"+i} />;
           const ds = dateStr(viewYear, viewMonth, d);
