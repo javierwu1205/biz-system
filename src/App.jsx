@@ -1955,7 +1955,7 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   const kpis = [
     { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order").length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
     { label:"Revenue 总收入",      value:"¥"+Math.round(totalRev).toLocaleString(),                   sub:"From orders",          color:"#10b981", icon:"💰" },
-    { label:"Profit 总利润",        value:"¥"+Math.round(totalRev-filtered.filter(d=>d.Stage==="Order").reduce((s,d)=>s+toCNY(d.Cost,d.Currency),0)).toLocaleString(), sub:"Revenue minus cost",   color:"#f59e0b", icon:"💵" },
+    { label:"Profit 总利润",        value:"¥"+Math.round(totalRev-filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).reduce((s,d)=>s+toCNY(d.Cost,d.Currency),0)).toLocaleString(), sub:"Revenue minus cost",   color:"#f59e0b", icon:"💵" },
     { label:"Pipeline 销售机会",   value:filtered.filter(d=>d.Stage!=="Order").length, sub:"Active",              color:"#3b82f6", icon:"🔄" },
     { label:"Forecast 预计成交",   value:"¥"+Math.round(totalForecast).toLocaleString(),              sub:"Probability-weighted",  color:"#a78bfa", icon:"📈" },
     { label:"New Leads 新客户",    value:filteredTrack.length,                        sub:"Contacts tracked",      color:"#f59e0b", icon:"🎯" },
