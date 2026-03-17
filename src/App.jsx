@@ -58,6 +58,7 @@ async function getAccountsAsync() {
     const snap = await Promise.race([getDoc(doc(db, "config", "accounts")), timeout]);
     if (snap.exists()) { _accountsCache = snap.data(); return _accountsCache; }
   } catch(e) {}
+  try { const s = localStorage.getItem("biz_v2"); if (s) { _accountsCache = JSON.parse(s); return _accountsCache; } } catch(e2) {}
   return DEFAULT_ACCOUNTS;
 }
 async function saveAccountsAsync(a) {
@@ -80,7 +81,8 @@ const SALES_MEMBERS = ["Javier","Ryan","Susan","Chaymae","Denny"]; // no Admin
 const CURRENCIES = ["USD","EUR","CNY"];
 // Exchange rates to CNY - loaded from localStorage (Admin configurable)
 function getRates() { try { return JSON.parse(localStorage.getItem("biz_rates")||"{}"); } catch(e) { return {}; } }
-function saveRates(r) { localStorage.setItem("biz_rates", JSON.stringify(r)); }
+function saveRates(r) { localStorage.setItem("biz_rates", JSON.stringify(r)); try { setDoc(doc(db,"config","rates"),r); } catch(e) {} }
+async function loadRatesFromFirebase() { try { const snap = await getDoc(doc(db,"config","rates")); if(snap.exists()){ const r=snap.data(); localStorage.setItem("biz_rates",JSON.stringify(r)); } } catch(e) {} }
 const DEFAULT_RATES = { USD: 7.25, EUR: 7.85, CNY: 1 };
 function toCNY(amount, currency) {
   const rates = { ...DEFAULT_RATES, ...getRates() };
@@ -2028,8 +2030,8 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
   });
   const maxRev = Math.max(...byPerson.map(p=>p.rev),1);
 
-const legacyRev    = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
-  const legacyProfit = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
+const legacyRev    = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy&&d.NextAction==="Completed").reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
+  const legacyProfit = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy&&d.NextAction==="Completed").reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
   const kpis = [
     { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
     { label:"Revenue 总收入",      value:"¥"+Math.round(totalRev).toLocaleString(),                 sub:"Excl. Legacy",          color:"#10b981", icon:"💰" },
@@ -2170,8 +2172,8 @@ const legacyRev    = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy).reduce((s
       <h4 style={{ color:T.text, margin:"0 0 10px", fontSize:15 }}>📊 Pipeline by Stage 阶段分布</h4>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
         {["Quotation","Negotiation","Order"].map(stage => {
-          const cnt = filtered.filter(d=>d.Stage===stage).length;
-          const amt = filtered.filter(d=>d.Stage===stage).reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
+          const cnt = filtered.filter(d=>d.Stage===stage&&!d.isLegacy).length;
+          const amt = filtered.filter(d=>d.Stage===stage&&!d.isLegacy).reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
           const c = STATUS_COLORS[stage]||"#718096";
           return (
             <div key={stage} style={{ background:T.bg2, border:`1px solid ${c}44`, borderRadius:12, padding:"18px 22px", textAlign:"center" }}>
@@ -3039,6 +3041,7 @@ function App() {
   const [calPersonal, calPersonalLoaded] = useFireCollection("cal_personal");
   const [calMemos, calMemosLoaded] = useFireCollection("cal_memos");
 
+  useEffect(()=>{ loadRatesFromFirebase(); },[]);
   const [forceLoaded, setForceLoaded] = useState(false);
   useEffect(() => { const t = setTimeout(() => setForceLoaded(true), 4000); return () => clearTimeout(t); }, []);
   // Core data: pipeline, clients, tracking, reports, goals - show UI as soon as these are ready
