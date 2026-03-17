@@ -2033,9 +2033,9 @@ function SalesDashboard({ T, pipeline=[], tracking=[], clients=[], reports=[], g
 const legacyRev    = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy&&d.NextAction==="Completed").reduce((s,d)=>s+toCNY(d.Amount,d.Currency),0);
   const legacyProfit = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy&&d.NextAction==="Completed").reduce((s,d)=>s+toCNY(d.Amount,d.Currency)-toCNY(d.Cost,d.Currency),0);
   const kpis = [
-    { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
+    { label:"Orders Won 已成交",  value:filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy&&d.NextAction==="Completed").length, sub:"Closed deals",         color:"#10b981", icon:"✅" },
     { label:"Revenue 总收入",      value:"¥"+Math.round(totalRev).toLocaleString(),                 sub:"Excl. Legacy",          color:"#10b981", icon:"💰" },
-    { label:"Profit 总利润",        value:"¥"+Math.round(totalRev-filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy).reduce((s,d)=>s+toCNY(d.Cost,d.Currency),0)).toLocaleString(), sub:"Excl. Legacy", color:"#f59e0b", icon:"💵" },
+    { label:"Profit 总利润",        value:"¥"+Math.round(totalRev-filtered.filter(d=>d.Stage==="Order"&&!d.isLegacy&&d.NextAction==="Completed").reduce((s,d)=>s+toCNY(d.Cost,d.Currency),0)).toLocaleString(), sub:"Excl. Legacy", color:"#f59e0b", icon:"💵" },
     { label:"📋 Legacy Revenue",   value:"¥"+Math.round(legacyRev).toLocaleString(),               sub:"接手业务收入",           color:"#94a3b8", icon:"📋" },
     { label:"📋 Legacy Profit",    value:"¥"+Math.round(legacyProfit).toLocaleString(),             sub:"接手业务利润",           color:"#94a3b8", icon:"📋" },
     { label:"Pipeline 销售机会",   value:filtered.filter(d=>d.Stage!=="Order").length, sub:"Active",              color:"#3b82f6", icon:"🔄" },
