@@ -2083,7 +2083,7 @@ const legacyRev    = filtered.filter(d=>d.Stage==="Order"&&d.isLegacy&&d.NextAct
       <FilterBar isSuper={true} filters={filters} setFilters={setFilters} showPerson={false} />
 
       {/* KPI Cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:12, marginBottom:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:12, marginBottom:24 }}>
         {kpis.map(({label,value,sub,color,icon}) => (
           <div key={label} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:14, padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
