@@ -2247,7 +2247,7 @@ function CalendarTodo({ T, calTeam, calPersonal, calMemos, user, onAddTeam, onUp
   function personalForDay(ds) { return calPersonal.filter(t=>t.date===ds && (isSuper || t.owner===user?.name || t._owner===user?.name)); }
 
   // Build calendar grid for current month
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const firstDay = new Date(viewYear+"-"+String(viewMonth+1).padStart(2,"0")+"-01T00:00:00").getDay(); // 0=Sun
   const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
   const cells = []; // null = empty padding
   for (let i=0;i<firstDay;i++) cells.push(null);
