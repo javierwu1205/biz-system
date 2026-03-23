@@ -664,6 +664,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
   const [clientSummary, setClientSummary] = useState(null);
   const [localHighlightId, setLocalHighlightId] = useState(null); // id of row being inline-edited
   const [inlineDate, setInlineDate] = useState("");
+  const [inlineEditId, setInlineEditId] = useState(null);
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
   const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", isLegacy:false, Sales:user?.name, _owner:user?.name };
   const visible = isSuper ? data : data.filter(d=>d._owner===user?.name||d.Sales===user?.name);
