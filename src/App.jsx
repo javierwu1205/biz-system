@@ -662,7 +662,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
   const [clientSearch, setClientSearch] = useState("");
   const [showClientDrop, setShowClientDrop] = useState(false);
   const [clientSummary, setClientSummary] = useState(null);
-  const [highlightId, setHighlightId] = useState(null); // id of row being inline-edited
+  const [localHighlightId, setLocalHighlightId] = useState(null); // id of row being inline-edited
   const [inlineDate, setInlineDate] = useState("");
   const fv = (k,v) => setForm(p=>({...p,[k]:v}));
   const empty = { Date:(()=>{const _d=new Date();return _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");})(), Client:"", Region:"North America", Country:"United States", Currency:"USD", Amount:"", Cost:"", Stage:"Quotation", Probability:"50%", NextAction:"Negotiation", FollowUpDate:"", Notes:"", pdfName:"", pdfData:"", isLegacy:false, Sales:user?.name, _owner:user?.name };
@@ -911,7 +911,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
         </div>
       )}
 
-      <FollowUpBanner pipeline={data} user={user} onJump={id => setHighlightId(id)} T={T} />
+      <FollowUpBanner pipeline={data} user={user} onJump={id => setLocalHighlightId(id)} T={T} />
       {isSuper && <PdfMigrationTool pipeline={data} />}
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
@@ -927,7 +927,7 @@ function Pipeline({ T, data=[], user, onAdd, onUpdate, onDelete, allClients=[], 
         </div>
       </div>
       <FilterBar isSuper={isSuper} filters={filters} setFilters={setFilters} />
-      <SortableTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user?.name} defaultSort="Date" sortDesc={true} sortKeyMap={sortKeyMap} highlightId={highlightId} />
+      <SortableTable headers={headers} rows={rows} onEdit={i=>openModal(filtered[i])} onDelete={del} canEdit={r=>isSuper||r._owner===user?.name} defaultSort="Date" sortDesc={true} sortKeyMap={sortKeyMap} highlightId={highlightId || localHighlightId} />
 
       {modal && <Modal title={editItem?"Edit Deal":"New Deal 新增报价"} onClose={()=>setModal(false)}>
         {/* Client with autocomplete */}
