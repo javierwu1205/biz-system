@@ -2976,6 +2976,160 @@ Keep it short and actionable!`;
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
+// ─── TRANSFER TAB (客户分配) ──────────────────────────────────────────────────
+function TransferTab({ allMembers, clients, pipeline, tracking, followups, goals, showMsg }) {
+  const T = getT();
+  const [filterOwner, setFilterOwner] = useState(""); // 筛选显示哪个人的客户
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState({}); // { clientName: targetUsername }
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(0);
+
+  // 所有客户列表（去重）
+  const allClients = Array.from(new Set(clients.map(c => c.Client).filter(Boolean))).sort();
+  // 筛选
+  const filtered = allClients.filter(name => {
+    const rec = clients.find(c => c.Client === name);
+    const owner = rec?.Sales || rec?._owner || "";
+    if (filterOwner && owner !== filterOwner && !Object.values(allMembers).find(m=>m.name===owner && Object.keys(allMembers).find(k=>allMembers[k]===m&&k===filterOwner))) {
+      // 用名字匹配
+      const ownerName = allMembers[filterOwner]?.name;
+      if (ownerName && owner !== ownerName) return false;
+    }
+    if (search && !name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  // 全选当前筛选结果给同一个人
+  function selectAll(targetKey) {
+    const upd = { ...selected };
+    filtered.forEach(name => { upd[name] = targetKey; });
+    setSelected(upd);
+  }
+  function clearAll() { setSelected({}); }
+
+  async function doAssign() {
+    const entries = Object.entries(selected).filter(([,v])=>v);
+    if (entries.length === 0) return showMsg("请先选择要分配的客户", "err");
+    setSaving(true); setDone(0);
+    let count = 0;
+    for (const [clientName, targetKey] of entries) {
+      const toName = allMembers[targetKey]?.name;
+      if (!toName) continue;
+      // clients2
+      for (const d of clients.filter(d=>d.Client===clientName))
+        await fireUpdate("clients2", d._id, { ...d, Sales:toName, _owner:targetKey });
+      // pipeline
+      for (const d of pipeline.filter(d=>d.Client===clientName))
+        await fireUpdate("pipeline", d._id, { ...d, Sales:toName, _owner:targetKey });
+      // tracking
+      for (const d of tracking.filter(d=>d.Client===clientName))
+        await fireUpdate("tracking", d._id, { ...d, Sales:toName, _owner:targetKey });
+      // followups
+      for (const d of followups.filter(d=>d.client===clientName))
+        await fireUpdate("followups", d._id, { ...d, sales:toName, _owner:targetKey });
+      count++;
+      setDone(count);
+    }
+    setSaving(false);
+    setSelected({});
+    showMsg(`✅ 已成功分配 ${count} 个客户！`);
+  }
+
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  return (
+    <div>
+      {/* 说明 */}
+      <div style={{ color:T.text3, fontSize:13, marginBottom:14, background:T.bg3, borderRadius:10, padding:"10px 14px" }}>
+        📋 为每个客户选择负责业务员，支持多选批量分配。分配后 Pipeline、客户、Tracking、跟进记录同步更新。
+      </div>
+
+      {/* 筛选 & 操作栏 */}
+      <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 搜索客户名..."
+          style={{ ...IS_fn(), width:180, fontSize:13 }} />
+        <select style={{ ...SS_fn(), width:"auto", minWidth:140 }} value={filterOwner} onChange={e=>setFilterOwner(e.target.value)}>
+          <option value="">全部客户</option>
+          {Object.entries(allMembers).map(([k,v])=><option key={k} value={k}>{v.name} 的客户</option>)}
+        </select>
+        <div style={{ color:T.text4, fontSize:12 }}>共 {filtered.length} 个客户</div>
+        <div style={{ marginLeft:"auto", display:"flex", gap:6, alignItems:"center" }}>
+          {/* 快速全选 */}
+          <select style={{ ...SS_fn(), width:"auto", minWidth:130, fontSize:12 }}
+            onChange={e=>{ if(e.target.value) selectAll(e.target.value); e.target.value=""; }}
+            defaultValue="">
+            <option value="">⚡ 全选给...</option>
+            {Object.entries(allMembers).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}
+          </select>
+          <Btn onClick={clearAll} style={{ background:T.bg4, color:T.text2, padding:"6px 12px", fontSize:12 }}>清除选择</Btn>
+        </div>
+      </div>
+
+      {/* 客户列表 */}
+      <div style={{ maxHeight:340, overflowY:"auto", border:`1px solid ${T.border}`, borderRadius:10, marginBottom:14 }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+          <thead style={{ position:"sticky", top:0, zIndex:1 }}>
+            <tr style={{ background:T.bg3 }}>
+              <th style={{ padding:"8px 12px", textAlign:"left", color:T.text3, fontSize:11, borderBottom:`1px solid ${T.border}` }}>客户名称</th>
+              <th style={{ padding:"8px 12px", textAlign:"left", color:T.text3, fontSize:11, borderBottom:`1px solid ${T.border}` }}>现在负责人</th>
+              <th style={{ padding:"8px 12px", textAlign:"left", color:T.text3, fontSize:11, borderBottom:`1px solid ${T.border}` }}>分配给 →</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={3} style={{ textAlign:"center", padding:30, color:T.text4 }}>没有找到客户</td></tr>
+            )}
+            {filtered.map(name => {
+              const rec = clients.find(c=>c.Client===name);
+              const currentOwner = rec?.Sales || "—";
+              const currentKey = Object.keys(allMembers).find(k=>allMembers[k].name===currentOwner) || "";
+              const assignedTo = selected[name] || "";
+              const isAssigned = !!assignedTo;
+              return (
+                <tr key={name} style={{ borderBottom:`1px solid ${T.bg4}`, background:isAssigned?"#10b98108":"" }}>
+                  <td style={{ padding:"8px 12px", color:T.text, fontWeight:isAssigned?600:400 }}>
+                    {isAssigned && <span style={{ color:"#10b981", marginRight:6 }}>✓</span>}
+                    {name}
+                  </td>
+                  <td style={{ padding:"8px 12px" }}>
+                    <span style={{ color:T.text3, fontSize:12 }}>{currentOwner}</span>
+                  </td>
+                  <td style={{ padding:"8px 12px" }}>
+                    <select
+                      style={{ ...SS_fn(), fontSize:12, padding:"4px 8px", width:"100%", maxWidth:180,
+                        background: assignedTo ? "#10b98122" : T.inputBg,
+                        borderColor: assignedTo ? "#10b981" : T.border,
+                        color: assignedTo ? "#10b981" : T.text }}
+                      value={assignedTo}
+                      onChange={e=>setSelected(p=>({ ...p, [name]: e.target.value }))}>
+                      <option value="">— 不分配 —</option>
+                      {Object.entries(allMembers).map(([k,v])=>(
+                        <option key={k} value={k}>{v.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 底部确认 */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <div style={{ color: selectedCount>0?"#10b981":T.text4, fontSize:13, fontWeight:600 }}>
+          {saving ? `⏳ 分配中... (${done}/${selectedCount})` : selectedCount>0 ? `已选择 ${selectedCount} 个客户待分配` : "请在上方选择客户并分配业务员"}
+        </div>
+        <Btn onClick={doAssign}
+          style={{ background: selectedCount===0||saving ? "#2d3748":"linear-gradient(135deg,#10b981,#059669)", color:"#fff", padding:"10px 24px", opacity:selectedCount===0||saving?0.5:1, cursor:selectedCount===0||saving?"not-allowed":"pointer" }}>
+          {saving ? "⏳ 分配中..." : `✅ 确认分配 ${selectedCount>0?`(${selectedCount})`:""}` }
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 // ─── ACCOUNT MANAGEMENT (Admin only) ─────────────────────────────────────────
 function AccountMgmt({ onClose, pipeline, tracking, clients, followups, goals, onTransferDone }) {
   const T = getT();
@@ -2985,9 +3139,7 @@ function AccountMgmt({ onClose, pipeline, tracking, clients, followups, goals, o
   const [editKey, setEditKey] = useState(null);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("ok");
-  const [transferFrom, setTransferFrom] = useState("");
-  const [transferTo, setTransferTo] = useState("");
-  const [transferring, setTransferring] = useState(false);
+  const [_unused] = useState(null); // placeholder
   const [confirmDel, setConfirmDel] = useState(null);
 
   useEffect(() => { getAccountsAsync().then(a => setAccounts(JSON.parse(JSON.stringify(a)))); }, []);
@@ -3057,36 +3209,6 @@ function AccountMgmt({ onClose, pipeline, tracking, clients, followups, goals, o
     showMsg("✅ 账号已删除");
   }
 
-  async function doTransfer() {
-    if (!transferFrom || !transferTo || transferFrom === transferTo) return showMsg("请选择不同的账号", "err");
-    const fromName = allMembers[transferFrom]?.name;
-    const toName = allMembers[transferTo]?.name;
-    if (!fromName || !toName) return showMsg("找不到对应成员", "err");
-    setTransferring(true);
-    try {
-      // Pipeline
-      for (const d of pipeline.filter(d => d.Sales === fromName || d._owner === transferFrom))
-        await fireUpdate("pipeline", d._id, { ...d, Sales: toName, _owner: transferTo });
-      // Clients
-      for (const d of clients.filter(d => d.Sales === fromName || d._owner === transferFrom))
-        await fireUpdate("clients2", d._id, { ...d, Sales: toName, _owner: transferTo });
-      // Tracking
-      for (const d of tracking.filter(d => d.Sales === fromName || d._owner === transferFrom))
-        await fireUpdate("tracking", d._id, { ...d, Sales: toName, _owner: transferTo });
-      // Followups
-      for (const d of followups.filter(d => d.sales === fromName || d._owner === transferFrom))
-        await fireUpdate("followups", d._id, { ...d, sales: toName, _owner: transferTo });
-      // Goals
-      for (const d of goals.filter(d => d.person === fromName))
-        await fireUpdate("goals", d._id, { ...d, person: toName });
-      showMsg(`✅ 已将 ${fromName} 的所有数据转移给 ${toName}`);
-      setTransferFrom(""); setTransferTo("");
-      if (onTransferDone) onTransferDone();
-    } catch(e) {
-      showMsg("❌ 转移失败: " + e.message, "err");
-    }
-    setTransferring(false);
-  }
 
   const msgStyle = { background: msgType==="ok"?"#0d2618":"#2d1515", border:`1px solid ${msgType==="ok"?"#10b98133":"#ef444433"}`, color: msgType==="ok"?"#10b981":"#fc8181", borderRadius:8, padding:"8px 14px", marginBottom:12, fontSize:13 };
 
@@ -3175,41 +3297,7 @@ function AccountMgmt({ onClose, pipeline, tracking, clients, followups, goals, o
 
       {/* ── 客户转移 ── */}
       {activeTab === "transfer" && (
-        <div>
-          <div style={{ color:T.text3, fontSize:13, marginBottom:16, background:T.bg3, borderRadius:10, padding:"12px 16px" }}>
-            📋 将某个业务员名下的<b style={{ color:T.text }}>所有数据</b>（Pipeline、客户、Tracking、跟进记录、业绩目标）批量转移给另一个人。适合人员离职接手时使用。
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", gap:12, alignItems:"end", marginBottom:16 }}>
-            <Field label="从 From（原业务员）">
-              <select style={SS_fn()} value={transferFrom} onChange={e=>setTransferFrom(e.target.value)}>
-                <option value="">-- 选择原业务员 --</option>
-                {Object.entries(allMembers).map(([k,v])=>(
-                  <option key={k} value={k}>{v.name}（{k}）</option>
-                ))}
-              </select>
-            </Field>
-            <div style={{ color:T.text3, fontSize:22, textAlign:"center", paddingBottom:8 }}>→</div>
-            <Field label="到 To（接收业务员）">
-              <select style={SS_fn()} value={transferTo} onChange={e=>setTransferTo(e.target.value)}>
-                <option value="">-- 选择接收人 --</option>
-                {Object.entries(allMembers).filter(([k])=>k!==transferFrom).map(([k,v])=>(
-                  <option key={k} value={k}>{v.name}（{k}）</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          {transferFrom && transferTo && (
-            <div style={{ background:"#2d1a00", border:"1px solid #f59e0b44", borderRadius:10, padding:"12px 16px", marginBottom:14, fontSize:13, color:"#f59e0b" }}>
-              ⚠️ 将把 <b>{allMembers[transferFrom]?.name}</b> 名下所有数据转给 <b>{allMembers[transferTo]?.name}</b>，此操作<b>不可撤销</b>！
-            </div>
-          )}
-          <div style={{ display:"flex", justifyContent:"flex-end" }}>
-            <Btn onClick={doTransfer}
-              style={{ background: (!transferFrom||!transferTo||transferring)?"#4a3030":"linear-gradient(135deg,#ef4444,#dc2626)", color:"#fff", padding:"10px 24px", opacity:transferring?0.6:1, cursor:transferring?"not-allowed":"pointer" }}>
-              {transferring ? "⏳ 转移中..." : "🔄 确认转移"}
-            </Btn>
-          </div>
-        </div>
+        <TransferTab allMembers={allMembers} clients={clients} pipeline={pipeline} tracking={tracking} followups={followups} goals={goals} showMsg={showMsg} />
       )}
     </Modal>
   );
