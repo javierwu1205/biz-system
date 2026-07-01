@@ -77,7 +77,18 @@ function saveAccounts(a) {
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const SALES_MEMBERS = ["Javier","Ryan","Susan","Chaymae","Denny"]; // no Admin
+const SALES_MEMBERS_DEFAULT = ["Javier","Ryan","Susan","Chaymae","Denny"];
+function getSalesMembers() {
+  try {
+    const accts = _accountsCache || JSON.parse(localStorage.getItem("biz_v2")||"{}");
+    const members = Object.values(accts.members||{}).map(m=>m.name);
+    const admins = Object.values(accts.admins||{}).filter(a=>a.name&&a.name!=="Admin").map(a=>a.name);
+    const all = [...new Set([...admins,...members])];
+    return all.length > 0 ? all : SALES_MEMBERS_DEFAULT;
+  } catch(e) { return SALES_MEMBERS_DEFAULT; }
+}
+// Reactive wrapper — updated on render
+let SALES_MEMBERS = SALES_MEMBERS_DEFAULT;
 const CURRENCIES = ["USD","EUR","CNY"];
 // Exchange rates to CNY - loaded from localStorage (Admin configurable)
 function getRates() { try { return JSON.parse(localStorage.getItem("biz_rates")||"{}"); } catch(e) { return {}; } }
@@ -2965,6 +2976,245 @@ Keep it short and actionable!`;
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
+// ─── ACCOUNT MANAGEMENT (Admin only) ─────────────────────────────────────────
+function AccountMgmt({ onClose, pipeline, tracking, clients, followups, goals, onTransferDone }) {
+  const T = getT();
+  const [accounts, setAccounts] = useState(null);
+  const [activeTab, setActiveTab] = useState("accounts");
+  const [form, setForm] = useState({});
+  const [editKey, setEditKey] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState("ok");
+  const [transferFrom, setTransferFrom] = useState("");
+  const [transferTo, setTransferTo] = useState("");
+  const [transferring, setTransferring] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  useEffect(() => { getAccountsAsync().then(a => setAccounts(JSON.parse(JSON.stringify(a)))); }, []);
+
+  if (!accounts) return (
+    <Modal title="⚙️ 账号管理 Account Management" onClose={onClose}>
+      <div style={{ padding:40, textAlign:"center", color:"#718096" }}>Loading...</div>
+    </Modal>
+  );
+
+  const allMembers = { ...accounts.admins, ...accounts.members };
+  const fv = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  function showMsg(text, type="ok") { setMsg(text); setMsgType(type); setTimeout(()=>setMsg(""), 4000); }
+
+  function startAdd() {
+    setForm({ username: "", name: "", password: "", role: "member" });
+    setEditKey("__new__");
+    setMsg("");
+  }
+  function startEdit(key) {
+    const isAdmin = !!accounts.admins[key];
+    setForm({ username: key, name: allMembers[key].name, password: allMembers[key].password, role: isAdmin ? "admin" : "member" });
+    setEditKey(key);
+    setMsg("");
+  }
+
+  async function save() {
+    if (!form.username.trim() || !form.name.trim() || !form.password.trim()) return showMsg("请填写所有字段", "err");
+    if (form.password.length < 6) return showMsg("密码至少6位", "err");
+    const newAccts = JSON.parse(JSON.stringify(accounts));
+    if (editKey === "__new__") {
+      const u = form.username.toLowerCase().trim();
+      if (newAccts.admins[u] || newAccts.members[u]) return showMsg("账号已存在！", "err");
+      const entry = { name: form.name.trim(), password: form.password };
+      if (form.role === "admin") newAccts.admins[u] = entry;
+      else newAccts.members[u] = entry;
+    } else {
+      const newKey = form.username.toLowerCase().trim();
+      const wasAdmin = !!accounts.admins[editKey];
+      // 删旧的
+      delete newAccts.admins[editKey];
+      delete newAccts.members[editKey];
+      // 如果换了用户名，检查冲突
+      if (newKey !== editKey && (newAccts.admins[newKey] || newAccts.members[newKey])) {
+        return showMsg("新账号名已被使用！", "err");
+      }
+      const entry = { name: form.name.trim(), password: form.password };
+      if (form.role === "admin") newAccts.admins[newKey] = entry;
+      else newAccts.members[newKey] = entry;
+    }
+    await saveAccountsAsync(newAccts);
+    localStorage.setItem("biz_v2", JSON.stringify(newAccts));
+    setAccounts(newAccts);
+    setEditKey(null);
+    showMsg("✅ 保存成功！");
+  }
+
+  async function del(key) {
+    if (key === "javier") return showMsg("不能删除主账号 javier", "err");
+    const newAccts = JSON.parse(JSON.stringify(accounts));
+    delete newAccts.admins[key];
+    delete newAccts.members[key];
+    await saveAccountsAsync(newAccts);
+    localStorage.setItem("biz_v2", JSON.stringify(newAccts));
+    setAccounts(newAccts);
+    setConfirmDel(null);
+    showMsg("✅ 账号已删除");
+  }
+
+  async function doTransfer() {
+    if (!transferFrom || !transferTo || transferFrom === transferTo) return showMsg("请选择不同的账号", "err");
+    const fromName = allMembers[transferFrom]?.name;
+    const toName = allMembers[transferTo]?.name;
+    if (!fromName || !toName) return showMsg("找不到对应成员", "err");
+    setTransferring(true);
+    try {
+      // Pipeline
+      for (const d of pipeline.filter(d => d.Sales === fromName || d._owner === transferFrom))
+        await fireUpdate("pipeline", d._id, { ...d, Sales: toName, _owner: transferTo });
+      // Clients
+      for (const d of clients.filter(d => d.Sales === fromName || d._owner === transferFrom))
+        await fireUpdate("clients2", d._id, { ...d, Sales: toName, _owner: transferTo });
+      // Tracking
+      for (const d of tracking.filter(d => d.Sales === fromName || d._owner === transferFrom))
+        await fireUpdate("tracking", d._id, { ...d, Sales: toName, _owner: transferTo });
+      // Followups
+      for (const d of followups.filter(d => d.sales === fromName || d._owner === transferFrom))
+        await fireUpdate("followups", d._id, { ...d, sales: toName, _owner: transferTo });
+      // Goals
+      for (const d of goals.filter(d => d.person === fromName))
+        await fireUpdate("goals", d._id, { ...d, person: toName });
+      showMsg(`✅ 已将 ${fromName} 的所有数据转移给 ${toName}`);
+      setTransferFrom(""); setTransferTo("");
+      if (onTransferDone) onTransferDone();
+    } catch(e) {
+      showMsg("❌ 转移失败: " + e.message, "err");
+    }
+    setTransferring(false);
+  }
+
+  const msgStyle = { background: msgType==="ok"?"#0d2618":"#2d1515", border:`1px solid ${msgType==="ok"?"#10b98133":"#ef444433"}`, color: msgType==="ok"?"#10b981":"#fc8181", borderRadius:8, padding:"8px 14px", marginBottom:12, fontSize:13 };
+
+  return (
+    <Modal title="⚙️ 账号管理 & 客户转移" onClose={onClose}>
+      <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+        {[["accounts","👤 账号管理"],["transfer","🔄 客户转移"]].map(([k,l])=>(
+          <Btn key={k} onClick={()=>{ setActiveTab(k); setMsg(""); setEditKey(null); }}
+            style={{ background:activeTab===k?"linear-gradient(135deg,#667eea,#764ba2)":T.bg3, color:activeTab===k?"#fff":T.text2, padding:"8px 18px" }}>{l}</Btn>
+        ))}
+      </div>
+      {msg && <div style={msgStyle}>{msg}</div>}
+
+      {/* ── 账号管理 ── */}
+      {activeTab === "accounts" && (
+        <div>
+          <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+            <Btn onClick={startAdd} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"8px 16px" }}>+ 新增账号</Btn>
+          </div>
+          <div style={{ overflowX:"auto", marginBottom:16 }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+              <thead><tr>
+                {["角色","姓名","账号","密码","操作"].map(h=>(
+                  <th key={h} style={{ textAlign:"left", padding:"8px 10px", color:T.text3, borderBottom:`1px solid ${T.border}`, fontSize:11 }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {Object.entries({ ...accounts.admins, ...accounts.members }).map(([key, val]) => {
+                  const isAdmin = !!accounts.admins[key];
+                  return (
+                    <tr key={key} style={{ borderBottom:`1px solid ${T.bg4}` }}>
+                      <td style={{ padding:"8px 10px" }}>
+                        <span style={{ background:isAdmin?"#a78bfa22":"#10b98122", color:isAdmin?"#a78bfa":"#10b981", fontSize:11, padding:"2px 8px", borderRadius:8, fontWeight:600 }}>{isAdmin?"Admin":"Member"}</span>
+                      </td>
+                      <td style={{ padding:"8px 10px", color:T.text, fontWeight:600 }}>{val.name}</td>
+                      <td style={{ padding:"8px 10px", color:T.text2 }}>{key}</td>
+                      <td style={{ padding:"8px 10px", color:T.text3, fontFamily:"monospace", fontSize:12 }}>{val.password}</td>
+                      <td style={{ padding:"8px 10px" }}>
+                        <div style={{ display:"flex", gap:6 }}>
+                          <Btn onClick={()=>startEdit(key)} style={{ background:T.bg4, color:T.text2, padding:"3px 10px", fontSize:11 }}>Edit</Btn>
+                          {key !== "javier" && (
+                            confirmDel === key
+                              ? <><Btn onClick={()=>del(key)} style={{ background:"#ef4444", color:"#fff", padding:"3px 10px", fontSize:11 }}>确认删除</Btn>
+                                  <Btn onClick={()=>setConfirmDel(null)} style={{ background:T.bg4, color:T.text2, padding:"3px 8px", fontSize:11 }}>✕</Btn></>
+                              : <Btn onClick={()=>setConfirmDel(key)} style={{ background:"#3d1515", color:"#fc8181", padding:"3px 10px", fontSize:11 }}>Del</Btn>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {editKey && (
+            <div style={{ background:T.bg3, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 18px" }}>
+              <div style={{ color:T.text, fontWeight:700, fontSize:14, marginBottom:12 }}>
+                {editKey==="__new__" ? "➕ 新增账号" : "✏️ 编辑账号"}
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                <Field label="姓名 Name（显示名）">
+                  <input style={IS_fn()} value={form.name||""} onChange={e=>fv("name",e.target.value)} placeholder="e.g. Ryan" />
+                </Field>
+                <Field label="账号 Username（登录用）">
+                  <input style={IS_fn()} value={form.username||""} onChange={e=>fv("username",e.target.value.toLowerCase())} placeholder="e.g. ryan（英文小写）" />
+                </Field>
+                <Field label="密码 Password（至少6位）">
+                  <input style={IS_fn()} value={form.password||""} onChange={e=>fv("password",e.target.value)} placeholder="至少6位" />
+                </Field>
+                <Field label="角色 Role">
+                  <select style={SS_fn()} value={form.role||"member"} onChange={e=>fv("role",e.target.value)}>
+                    <option value="member">Member 成员</option>
+                    <option value="admin">Admin 管理员</option>
+                  </select>
+                </Field>
+              </div>
+              <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:10 }}>
+                <Btn onClick={()=>setEditKey(null)} style={{ background:T.bg4, color:T.text2, padding:"8px 18px" }}>取消</Btn>
+                <Btn onClick={save} style={{ background:"linear-gradient(135deg,#667eea,#764ba2)", color:"#fff", padding:"8px 22px" }}>保存</Btn>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 客户转移 ── */}
+      {activeTab === "transfer" && (
+        <div>
+          <div style={{ color:T.text3, fontSize:13, marginBottom:16, background:T.bg3, borderRadius:10, padding:"12px 16px" }}>
+            📋 将某个业务员名下的<b style={{ color:T.text }}>所有数据</b>（Pipeline、客户、Tracking、跟进记录、业绩目标）批量转移给另一个人。适合人员离职接手时使用。
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", gap:12, alignItems:"end", marginBottom:16 }}>
+            <Field label="从 From（原业务员）">
+              <select style={SS_fn()} value={transferFrom} onChange={e=>setTransferFrom(e.target.value)}>
+                <option value="">-- 选择原业务员 --</option>
+                {Object.entries(allMembers).map(([k,v])=>(
+                  <option key={k} value={k}>{v.name}（{k}）</option>
+                ))}
+              </select>
+            </Field>
+            <div style={{ color:T.text3, fontSize:22, textAlign:"center", paddingBottom:8 }}>→</div>
+            <Field label="到 To（接收业务员）">
+              <select style={SS_fn()} value={transferTo} onChange={e=>setTransferTo(e.target.value)}>
+                <option value="">-- 选择接收人 --</option>
+                {Object.entries(allMembers).filter(([k])=>k!==transferFrom).map(([k,v])=>(
+                  <option key={k} value={k}>{v.name}（{k}）</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          {transferFrom && transferTo && (
+            <div style={{ background:"#2d1a00", border:"1px solid #f59e0b44", borderRadius:10, padding:"12px 16px", marginBottom:14, fontSize:13, color:"#f59e0b" }}>
+              ⚠️ 将把 <b>{allMembers[transferFrom]?.name}</b> 名下所有数据转给 <b>{allMembers[transferTo]?.name}</b>，此操作<b>不可撤销</b>！
+            </div>
+          )}
+          <div style={{ display:"flex", justifyContent:"flex-end" }}>
+            <Btn onClick={doTransfer}
+              style={{ background: (!transferFrom||!transferTo||transferring)?"#4a3030":"linear-gradient(135deg,#ef4444,#dc2626)", color:"#fff", padding:"10px 24px", opacity:transferring?0.6:1, cursor:transferring?"not-allowed":"pointer" }}>
+              {transferring ? "⏳ 转移中..." : "🔄 确认转移"}
+            </Btn>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 // ─── EXCHANGE RATE SETTINGS (Admin only) ────────────────────────────────────
 function ExchangeRateSettings({ onClose, user }) {
   const T = getT();
@@ -3012,8 +3262,12 @@ function App() {
   const [theme, setTheme] = useState(getTheme);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showRateSettings, setShowRateSettings] = useState(false); // always false on load
+  const [showAccountMgmt, setShowAccountMgmt] = useState(false);
   const [highlightId, setHighlightId] = useState(null); // for banner click-to-pipeline
   const T = theme; // shorthand
+
+  // Update SALES_MEMBERS dynamically from accounts
+  SALES_MEMBERS = getSalesMembers();
 
   function switchTheme(key) {
     const t = THEMES[key];
@@ -3112,6 +3366,7 @@ function App() {
       <ThemeStyle T={T} />
       {showRateSettings && user && isSuper && <ExchangeRateSettings onClose={()=>setShowRateSettings(false)} user={user} />}
       {showPwd && <ChangePasswordModal user={user} onClose={()=>setShowPwd(false)} />}
+      {showAccountMgmt && isSuper && <AccountMgmt onClose={()=>setShowAccountMgmt(false)} pipeline={pipeline} tracking={tracking} clients={clients} followups={followups} goals={goals} onTransferDone={()=>setShowAccountMgmt(false)} />}
 
       {/* NAV */}
       <div style={{ background:T.navBg, borderBottom:`1px solid ${T.navBorder}`, position:"sticky", top:0, zIndex:100 }}>
@@ -3138,6 +3393,7 @@ function App() {
               {/* Theme picker */}
               <div style={{ position:"relative" }}>
                 {isSuper && <button onClick={()=>setShowRateSettings(p=>!p)} title="汇率设置 Exchange Rate" style={{ background:T.bg2, border:`1px solid ${T.border}`, color:"#f59e0b", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontSize:14, fontWeight:600 }}>💱</button>}
+                {isSuper && <button onClick={()=>setShowAccountMgmt(true)} title="账号管理 Account Management" style={{ background:T.bg2, border:`1px solid ${T.border}`, color:"#a78bfa", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontSize:14, fontWeight:600 }}>👤</button>}
             <button onClick={()=>setShowThemePicker(p=>!p)} title="切换主题 Theme" style={{ background:T.bg2, border:`1px solid ${T.border}`, color:T.text2, padding:"8px 12px", borderRadius:8, cursor:"pointer", fontSize:14 }}>🎨</button>
                 {showThemePicker && (
                   <div style={{ position:"absolute", right:0, top:42, background:T.bg2, border:`1px solid ${T.border}`, borderRadius:12, padding:10, zIndex:999, minWidth:180, boxShadow:"0 8px 32px #00000066" }}>
